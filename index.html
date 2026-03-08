@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Summary Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 100px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+        button {
+            padding: 12px 24px;
+            background-color: #000;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 16px;
+            background: white;
+            border-radius: 6px;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI Summary Tool</h1>
+    <input type="text" id="topic" placeholder="What do you want to learn about?" />
+    <button onclick="askAI()">Ask AI</button>
+    <div id="result"></div>
+
+    <script>
+        async function askAI() {
+            const topic = document.getElementById("topic").value;
+            document.getElementById("result").innerText = "Thinking...";
+
+            const response = await fetch("http://127.0.0.1:5000/ask", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({topic: topic})
+            });
+
+            const data = await response.json();
+            document.getElementById("result").innerText = data.answer;
+        }
+    </script>
+</body>
+</html>
