@@ -48,7 +48,7 @@
             const topic = document.getElementById("topic").value;
             document.getElementById("result").innerText = "Thinking...";
 
-            const response = await fetch("https://ai-summary-tool-production.up.railway.app/ask", {
+            const response = await fetch("s://ai-summary-tool-5j6g.onrender.com/askhttps://ai-summary-tool-5j6g.onrender.com/ask", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({topic: topic})
