@@ -64,6 +64,9 @@
             margin-top: 20px; padding: 16px; background: #f9f9f9;
             border-radius: 8px; font-size: 15px; line-height: 1.7; color: #222; display: none;
         }
+        .otp-input {
+            letter-spacing: 6px; font-size: 24px; text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -75,6 +78,7 @@
         <div id="error-box" class="error-msg"></div>
         <div id="success-box" class="success-msg"></div>
 
+        <!-- Login Form -->
         <div id="login-form">
             <h2>Sign in</h2>
             <div class="form-group">
@@ -91,6 +95,7 @@
             </div>
         </div>
 
+        <!-- Signup Form -->
         <div id="signup-form" style="display:none;">
             <h2>Create account</h2>
             <div class="form-group">
@@ -106,8 +111,23 @@
                 Already have an account? <a onclick="showLogin()">Sign in</a>
             </div>
         </div>
+
+        <!-- OTP Verification Form -->
+        <div id="otp-form" style="display:none;">
+            <h2>Verify your email</h2>
+            <p style="color:#888; font-size:13px; margin-bottom:20px;">We sent a 6-digit code to <span id="otp-email-display" style="color:#111;"></span></p>
+            <div class="form-group">
+                <label>Verification Code</label>
+                <input type="text" id="otp-code" class="otp-input" placeholder="000000" maxlength="6" />
+            </div>
+            <button class="btn" onclick="verifyOTP()">Verify</button>
+            <div class="toggle-text">
+                Didn't get it? <a onclick="resendOTP()">Resend code</a>
+            </div>
+        </div>
     </div>
 
+    <!-- App (shown after login) -->
     <div id="app-section">
         <div class="user-bar">
             <span id="user-email-display"></span>
@@ -128,14 +148,16 @@
     const { createClient } = supabase;
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    let pendingEmail = "";
+
     window.addEventListener("load", async () => {
         const { data: { session } } = await sb.auth.getSession();
         if (session) showApp(session.user.email);
     });
 
     sb.auth.onAuthStateChange((event, session) => {
-        if (session) showApp(session.user.email);
-        else showAuth();
+        if (event === "SIGNED_IN" && session) showApp(session.user.email);
+        if (event === "SIGNED_OUT") showAuth();
     });
 
     function showApp(email) {
@@ -147,17 +169,28 @@
     function showAuth() {
         document.getElementById("auth-section").style.display = "block";
         document.getElementById("app-section").style.display = "none";
+        showLogin();
     }
 
     function showSignup() {
         document.getElementById("login-form").style.display = "none";
         document.getElementById("signup-form").style.display = "block";
+        document.getElementById("otp-form").style.display = "none";
         clearMessages();
     }
 
     function showLogin() {
-        document.getElementById("signup-form").style.display = "none";
         document.getElementById("login-form").style.display = "block";
+        document.getElementById("signup-form").style.display = "none";
+        document.getElementById("otp-form").style.display = "none";
+        clearMessages();
+    }
+
+    function showOTP(email) {
+        document.getElementById("login-form").style.display = "none";
+        document.getElementById("signup-form").style.display = "none";
+        document.getElementById("otp-form").style.display = "block";
+        document.getElementById("otp-email-display").innerText = email;
         clearMessages();
     }
 
@@ -193,12 +226,42 @@
         const password = document.getElementById("signup-password").value;
         if (!email || !password) return showError("Please fill in all fields.");
         if (password.length < 6) return showError("Password must be at least 6 characters.");
+
         const { error } = await sb.auth.signUp({ email, password });
         if (error) {
             showError(error.message);
         } else {
-            showSuccess("Account created! Check your email to confirm, then sign in.");
-            showLogin();
+            pendingEmail = email;
+            showOTP(email);
+            showSuccess("Check your email for a 6-digit verification code!");
+        }
+    }
+
+    async function verifyOTP() {
+        const code = document.getElementById("otp-code").value.trim();
+        if (!code || code.length !== 6) return showError("Please enter the 6-digit code.");
+
+        const { error } = await sb.auth.verifyOtp({
+            email: pendingEmail,
+            token: code,
+            type: "signup"
+        });
+
+        if (error) {
+            showError("Invalid or expired code. Try again.");
+        }
+        // if success, onAuthStateChange will fire and show the app automatically
+    }
+
+    async function resendOTP() {
+        const { error } = await sb.auth.resend({
+            type: "signup",
+            email: pendingEmail
+        });
+        if (error) {
+            showError(error.message);
+        } else {
+            showSuccess("New code sent! Check your email.");
         }
     }
 
