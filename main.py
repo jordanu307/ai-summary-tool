@@ -27,11 +27,8 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 def get_current_user(request):
-    """
-    Checks the Authorization header for a valid Supabase token.
-    Returns the user if valid, or None if not.
-    """
     auth_header = request.headers.get("Authorization")
+    print(f"Auth header received: {auth_header}")
 
     if not auth_header or not auth_header.startswith("Bearer "):
         return None
@@ -41,26 +38,24 @@ def get_current_user(request):
     try:
         response = supabase.auth.get_user(token)
         return response.user
-    except Exception:
+    except Exception as e:
+        print(f"Auth error: {e}")
         return None
 
 
 @app.route("/ask", methods=["POST"])
 @limiter.limit("10 per minute")
 def ask():
-    # Step 1: Verify the user is logged in
     user = get_current_user(request)
     if not user:
         return jsonify({"error": "Unauthorized. Please log in."}), 401
 
-    # Step 2: Validate input
     data = request.json
     topic = data.get("topic", "")
 
     if not topic or len(topic) > 500:
         return jsonify({"error": "Invalid input"}), 400
 
-    # Step 3: Ask the AI
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
@@ -70,7 +65,6 @@ def ask():
 
     answer = response.choices[0].message.content
 
-    # Step 4: Save to Supabase with the user's ID
     supabase.table("questions").insert({
         "question": topic,
         "answer": answer,
