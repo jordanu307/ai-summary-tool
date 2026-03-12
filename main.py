@@ -28,10 +28,15 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-client = Groq(api_key=GROQ_API_KEY, timeout=20.0, max_retries=0)
+client = Groq(api_key=GROQ_API_KEY, timeout=30.0, max_retries=0)
 openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok"})
 
 MODEL_MAP = {
     "groq": {"provider": "groq", "model": "llama-3.3-70b-versatile"},

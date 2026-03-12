@@ -162,6 +162,8 @@
     window.addEventListener("load", async () => {
         const { data: { session } } = await sb.auth.getSession();
         if (session) showApp(session.user.email);
+        // Warm up backend to reduce cold-start delays on first ask
+        fetch("https://ai-summary-tool-5j6g.onrender.com/health").catch(() => {});
     });
 
     sb.auth.onAuthStateChange((event, session) => {
@@ -300,7 +302,7 @@
         result.style.display = "none";
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 25000);
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
 
         try {
             const response = await fetch("https://ai-summary-tool-5j6g.onrender.com/ask", {
@@ -313,9 +315,16 @@
                 signal: controller.signal
             });
 
-            const data = await response.json();
+            let data = null;
+            try {
+                data = await response.json();
+            } catch (parseError) {
+                const text = await response.text();
+                data = { error: text || "Unexpected response from server." };
+            }
+
             if (response.status === 401) return showAuth();
-            result.innerText = data.answer || data.error;
+            result.innerText = data.answer || data.error || "Request failed.";
             result.style.display = "block";
         } catch (error) {
             if (error.name === "AbortError") {
