@@ -315,12 +315,12 @@
                 signal: controller.signal
             });
 
+            const rawText = await response.text();
             let data = null;
             try {
-                data = await response.json();
+                data = JSON.parse(rawText);
             } catch (parseError) {
-                const text = await response.text();
-                data = { error: text || "Unexpected response from server." };
+                data = { error: rawText || "Unexpected response from server." };
             }
 
             if (response.status === 401) return showAuth();
