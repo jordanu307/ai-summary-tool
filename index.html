@@ -227,7 +227,13 @@
         if (!email || !password) return showError("Please fill in all fields.");
         if (password.length < 6) return showError("Password must be at least 6 characters.");
 
-        const { error } = await sb.auth.signUp({ email, password });
+        const { error } = await sb.auth.signUp({
+            email,
+            password,
+            options: {
+                emailRedirectTo: "https://rad-faun-c590ff.netlify.app"
+            }
+        });
         if (error) {
             showError(error.message);
         } else {
@@ -244,7 +250,7 @@
         const { error } = await sb.auth.verifyOtp({
             email: pendingEmail,
             token: code,
-            type: "signup"
+            type: "email"
         });
 
         if (error) {
@@ -283,6 +289,9 @@
         btn.innerText = "Thinking...";
         result.style.display = "none";
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 25000);
+
         try {
             const response = await fetch("https://ai-summary-tool-5j6g.onrender.com/ask", {
                 method: "POST",
@@ -290,7 +299,8 @@
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${session.access_token}`
                 },
-                body: JSON.stringify({ topic })
+                body: JSON.stringify({ topic }),
+                signal: controller.signal
             });
 
             const data = await response.json();
@@ -298,9 +308,14 @@
             result.innerText = data.answer || data.error;
             result.style.display = "block";
         } catch (error) {
-            result.innerText = "Something went wrong. Try again.";
+            if (error.name === "AbortError") {
+                result.innerText = "Request timed out. Please try again.";
+            } else {
+                result.innerText = "Something went wrong. Try again.";
+            }
             result.style.display = "block";
         } finally {
+            clearTimeout(timeoutId);
             btn.disabled = false;
             btn.innerText = "Ask AI";
         }

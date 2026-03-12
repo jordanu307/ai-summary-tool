@@ -22,7 +22,7 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-client = Groq(api_key=GROQ_API_KEY)
+client = Groq(api_key=GROQ_API_KEY, timeout=20.0, max_retries=0)
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
@@ -49,6 +49,8 @@ def ask():
     user = get_current_user(request)
     if not user:
         return jsonify({"error": "Unauthorized. Please log in."}), 401
+    if not GROQ_API_KEY:
+        return jsonify({"error": "Server misconfigured: missing GROQ_API_KEY."}), 500
 
     data = request.json
     topic = data.get("topic", "")
@@ -56,14 +58,17 @@ def ask():
     if not topic or len(topic) > 500:
         return jsonify({"error": "Invalid input"}), 400
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "user", "content": f"Explain this clearly in 3 sentences: {topic}"}
-        ]
-    )
-
-    answer = response.choices[0].message.content
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "user", "content": f"Explain this clearly in 3 sentences: {topic}"}
+            ]
+        )
+        answer = response.choices[0].message.content
+    except Exception as e:
+        print(f"Groq error: {e}")
+        return jsonify({"error": "AI service timed out or failed. Please try again."}), 502
 
     supabase.table("questions").insert({
         "question": topic,
