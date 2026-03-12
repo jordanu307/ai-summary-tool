@@ -27,7 +27,7 @@
         #auth-section h2 { font-size: 20px; margin-bottom: 20px; color: #111; }
         .form-group { margin-bottom: 14px; }
         label { display: block; font-size: 13px; color: #555; margin-bottom: 5px; }
-        input[type="email"], input[type="password"], input[type="text"] {
+        input[type="email"], input[type="password"], input[type="text"], select {
             width: 100%; padding: 11px 14px; font-size: 15px;
             border: 1px solid #ddd; border-radius: 7px; outline: none; transition: border 0.2s;
         }
@@ -135,6 +135,15 @@
         </div>
         <div class="form-group">
             <input type="text" id="topic" placeholder="What do you want to learn about?" />
+        </div>
+        <div class="form-group">
+            <label>AI Model</label>
+            <select id="model-select">
+                <option value="groq">Groq (llama-3.3-70b-versatile)</option>
+                <option value="openai">OpenAI (gpt-4o-mini)</option>
+                <option value="gemini">Gemini (gemini-1.5-flash)</option>
+                <option value="claude">Claude (claude-haiku-4-5-20251001)</option>
+            </select>
         </div>
         <button class="btn" id="ask-btn" onclick="askAI()">Ask AI</button>
         <div id="result"></div>
@@ -277,6 +286,7 @@
 
     async function askAI() {
         const topic = document.getElementById("topic").value.trim();
+        const model = document.getElementById("model-select").value;
         const btn = document.getElementById("ask-btn");
         const result = document.getElementById("result");
 
@@ -299,7 +309,7 @@
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${session.access_token}`
                 },
-                body: JSON.stringify({ topic }),
+                body: JSON.stringify({ topic, model }),
                 signal: controller.signal
             });
 
