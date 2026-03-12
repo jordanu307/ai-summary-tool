@@ -164,6 +164,10 @@
         if (session) showApp(session.user.email);
         // Warm up backend to reduce cold-start delays on first ask
         fetch("https://ai-summary-tool-5j6g.onrender.com/health").catch(() => {});
+        // Keep the free Render instance awake
+        setInterval(() => {
+            fetch("https://ai-summary-tool-5j6g.onrender.com/health").catch(() => {});
+        }, 5 * 60 * 1000);
     });
 
     sb.auth.onAuthStateChange((event, session) => {
@@ -302,7 +306,7 @@
         result.style.display = "none";
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000);
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
 
         try {
             const response = await fetch("https://ai-summary-tool-5j6g.onrender.com/ask", {
