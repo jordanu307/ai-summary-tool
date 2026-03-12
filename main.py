@@ -5,8 +5,6 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from groq import Groq
 from openai import OpenAI
-import google.generativeai as genai
-from anthropic import Anthropic
 from supabase import create_client
 from dotenv import load_dotenv
 
@@ -23,14 +21,11 @@ limiter = Limiter(
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 client = Groq(api_key=GROQ_API_KEY, timeout=30.0, max_retries=0)
 openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
-anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
@@ -41,8 +36,6 @@ def health():
 MODEL_MAP = {
     "groq": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
     "openai": {"provider": "openai", "model": "gpt-4o-mini"},
-    "gemini": {"provider": "gemini", "model": "gemini-1.5-flash"},
-    "claude": {"provider": "claude", "model": "claude-haiku-4-5-20251001"},
 }
 
 MODEL_ALIASES = {v["model"]: k for k, v in MODEL_MAP.items()}
@@ -76,25 +69,6 @@ def generate_answer(model_choice, topic):
             messages=[{"role": "user", "content": prompt}]
         )
         return response.choices[0].message.content, None, 200
-
-    if provider == "gemini":
-        if not GEMINI_API_KEY:
-            return None, "Server misconfigured: missing GEMINI_API_KEY.", 500
-        genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel(model_name)
-        response = model.generate_content(prompt)
-        return getattr(response, "text", None), None, 200
-
-    if provider == "claude":
-        if not ANTHROPIC_API_KEY or not anthropic_client:
-            return None, "Server misconfigured: missing ANTHROPIC_API_KEY.", 500
-        response = anthropic_client.messages.create(
-            model=model_name,
-            max_tokens=256,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        content = response.content[0].text if response.content else None
-        return content, None, 200
 
     return None, "Unsupported model selection.", 400
 
