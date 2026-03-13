@@ -2,7 +2,6 @@ flask
 flask-cors
 flask-limiter
 groq
-openai
 supabase
 python-dotenv
 gunicorn

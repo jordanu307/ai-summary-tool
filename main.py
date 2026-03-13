@@ -4,7 +4,6 @@ from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from groq import Groq
-from openai import OpenAI
 from supabase import create_client
 from dotenv import load_dotenv
 
@@ -20,12 +19,10 @@ limiter = Limiter(
 )
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 client = Groq(api_key=GROQ_API_KEY, timeout=30.0, max_retries=0)
-openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
@@ -35,7 +32,6 @@ def health():
 
 MODEL_MAP = {
     "groq": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
-    "openai": {"provider": "openai", "model": "gpt-4o-mini"},
 }
 
 MODEL_ALIASES = {v["model"]: k for k, v in MODEL_MAP.items()}
@@ -56,15 +52,6 @@ def generate_answer(model_choice, topic):
         if not GROQ_API_KEY:
             return None, "Server misconfigured: missing GROQ_API_KEY.", 500
         response = client.chat.completions.create(
-            model=model_name,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.choices[0].message.content, None, 200
-
-    if provider == "openai":
-        if not OPENAI_API_KEY or not openai_client:
-            return None, "Server misconfigured: missing OPENAI_API_KEY.", 500
-        response = openai_client.chat.completions.create(
             model=model_name,
             messages=[{"role": "user", "content": prompt}]
         )
