@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -6,6 +7,7 @@ from flask_limiter.util import get_remote_address
 from groq import Groq
 from supabase import create_client
 from dotenv import load_dotenv
+import stripe
 
 load_dotenv()
 
@@ -22,9 +24,13 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY")
+STRIPE_PRICE_ID = os.environ.get("STRIPE_PRICE_ID")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET")
 
 client = Groq(api_key=GROQ_API_KEY, timeout=30.0, max_retries=0)
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+stripe.api_key = STRIPE_SECRET_KEY
 
 
 @app.route("/health", methods=["GET"])
@@ -77,6 +83,31 @@ def get_current_user(request):
     if not auth_header or not auth_header.startswith("Bearer "):
         return None
 
+
+def is_pro_user(user_id):
+    try:
+        response = supabase.table("subscriptions").select("status").eq(
+            "user_id", user_id
+        ).limit(1).execute()
+        rows = response.data or []
+        if not rows:
+            return False
+        status = rows[0].get("status")
+        return status in ["active", "trialing"]
+    except Exception as e:
+        print(f"Subscription lookup error: {e}")
+        return False
+
+
+def count_questions_today(user_id):
+    start_of_day = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    ).isoformat()
+    response = supabase.table("questions").select(
+        "id", count="exact"
+    ).eq("user_id", user_id).gte("created_at", start_of_day).execute()
+    return response.count or 0
+
     token = auth_header.split(" ")[1]
 
     try:
@@ -102,6 +133,17 @@ def ask():
     if not topic or len(topic) > 500:
         return jsonify({"error": "Invalid input"}), 400
 
+    if not is_pro_user(user.id):
+        try:
+            asked_today = count_questions_today(user.id)
+        except Exception as e:
+            print(f"Usage count error: {e}")
+            return jsonify({"error": "Usage check failed."}), 500
+        if asked_today >= 5:
+            return jsonify({
+                "error": "Free limit reached. Upgrade to Pro for unlimited questions."
+            }), 403
+
     try:
         answer, error_msg, status_code = generate_answer(model_choice, topic, style)
         if error_msg:
@@ -119,6 +161,79 @@ def ask():
     }).execute()
 
     return jsonify({"answer": answer})
+
+
+@app.route("/subscription-status", methods=["GET"])
+def subscription_status():
+    user = get_current_user(request)
+    if not user:
+        return jsonify({"error": "Unauthorized. Please log in."}), 401
+    return jsonify({"status": "pro" if is_pro_user(user.id) else "free"})
+
+
+@app.route("/create-checkout-session", methods=["POST"])
+def create_checkout_session():
+    user = get_current_user(request)
+    if not user:
+        return jsonify({"error": "Unauthorized. Please log in."}), 401
+    if not STRIPE_SECRET_KEY or not STRIPE_PRICE_ID:
+        return jsonify({"error": "Stripe not configured."}), 500
+
+    try:
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            line_items=[{"price": STRIPE_PRICE_ID, "quantity": 1}],
+            success_url="https://rad-faun-c590ff.netlify.app/?success=true",
+            cancel_url="https://rad-faun-c590ff.netlify.app/?canceled=true",
+            client_reference_id=user.id,
+            metadata={"user_id": user.id},
+            subscription_data={"metadata": {"user_id": user.id}},
+        )
+        return jsonify({"url": session.url})
+    except Exception as e:
+        print(f"Stripe checkout error: {e}")
+        return jsonify({"error": "Failed to create checkout session."}), 500
+
+
+@app.route("/webhook", methods=["POST"])
+def stripe_webhook():
+    payload = request.data
+    sig_header = request.headers.get("Stripe-Signature")
+
+    if STRIPE_WEBHOOK_SECRET:
+        try:
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, STRIPE_WEBHOOK_SECRET
+            )
+        except Exception as e:
+            print(f"Webhook signature error: {e}")
+            return jsonify({"error": "Invalid signature."}), 400
+    else:
+        try:
+            event = stripe.Event.construct_from(request.get_json(), stripe.api_key)
+        except Exception as e:
+            print(f"Webhook parse error: {e}")
+            return jsonify({"error": "Invalid payload."}), 400
+
+    if event["type"] in ["customer.subscription.created", "customer.subscription.updated"]:
+        subscription = event["data"]["object"]
+        status = subscription.get("status")
+        customer_id = subscription.get("customer")
+        user_id = None
+        metadata = subscription.get("metadata") or {}
+        user_id = metadata.get("user_id")
+
+        if user_id and customer_id:
+            try:
+                supabase.table("subscriptions").upsert({
+                    "user_id": user_id,
+                    "stripe_customer_id": customer_id,
+                    "status": status
+                }).execute()
+            except Exception as e:
+                print(f"Subscription upsert error: {e}")
+
+    return jsonify({"received": True})
 
 
 @app.route("/history", methods=["GET"])
