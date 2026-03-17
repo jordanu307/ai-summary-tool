@@ -177,10 +177,15 @@
             border-radius: 12px;
             background: var(--input-bg);
             color: var(--text);
+            -webkit-text-fill-color: var(--text);
             font-size: 15px;
             padding: 12px 14px;
             outline: none;
             transition: border-color var(--hover-t), box-shadow var(--hover-t), background var(--hover-t), transform var(--hover-t);
+        }
+        input::placeholder {
+            color: var(--muted);
+            opacity: 0.9;
         }
 
         #topic {
@@ -427,6 +432,43 @@
             background-size: 240% 240%;
             animation: shiftGradient 8s ease infinite;
             box-shadow: 0 12px 30px rgba(104, 96, 255, 0.36);
+            color: #ffffff !important;
+            border: none !important;
+            font-weight: 800;
+        }
+        .locked-note {
+            margin-top: 4px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .locked-note .lock {
+            margin-right: 4px;
+        }
+        #pro-image-tools {
+            margin-top: 10px;
+            display: none;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        #image-upload-btn {
+            width: auto;
+            padding: 8px 12px;
+            margin-top: 0;
+        }
+        #image-preview {
+            font-size: 12px;
+            color: var(--muted);
+            display: none;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+        }
+        #clear-image-btn {
+            width: auto;
+            padding: 4px 8px;
+            margin-top: 0;
+            font-size: 11px;
         }
 
         .row {
@@ -501,6 +543,8 @@
         #upgrade-prompt {
             margin-top: 12px;
             display: none;
+            border-width: 2px;
+            font-size: 14px;
         }
 
         #history-section {
@@ -748,6 +792,14 @@
             <input type="text" id="topic" placeholder="What do you want to learn about?" />
         </div>
         <div id="char-count" class="char-count reveal" style="--delay: 190ms;">0 / 500 characters</div>
+        <div id="pro-image-tools" class="reveal" style="--delay: 205ms;">
+            <input type="file" id="image-input" accept="image/*" style="display:none;" />
+            <button class="btn secondary" id="image-upload-btn" onclick="openImagePicker()">📷 Upload Image</button>
+            <div id="image-preview">
+                <span id="image-name"></span>
+                <button class="btn secondary" id="clear-image-btn" onclick="clearImage()">Remove</button>
+            </div>
+        </div>
 
         <div class="row reveal" style="--delay: 230ms;">
             <div class="form-group">
@@ -758,12 +810,13 @@
             </div>
             <div class="form-group">
                 <label>Response Style</label>
-                <select id="style-select">
+                <select id="style-select" title="Upgrade to Pro for Bullets and Detailed">
                     <option value="normal">Normal</option>
                     <option value="eli5">Explain like I'm 5</option>
-                    <option value="bullets">Bullet points</option>
-                    <option value="detailed">Detailed</option>
+                    <option value="bullets">🔒 Bullet points (Pro)</option>
+                    <option value="detailed">🔒 Detailed (Pro)</option>
                 </select>
+                <div id="style-lock-note" class="locked-note" title="Upgrade to Pro"> <span class="lock">🔒</span>Bullets and Detailed are Pro features</div>
             </div>
         </div>
 
@@ -772,7 +825,7 @@
         <button class="btn copy-btn" id="copy-btn" onclick="copyAnswer()">Copy</button>
 
         <div id="upgrade-prompt" class="error-msg">
-            <div>You've used your 5 free questions today. Upgrade to Pro for unlimited!</div>
+            <div>You've used all 5 free questions today. Upgrade to Pro for unlimited!</div>
             <button class="btn secondary" style="margin-top:10px;" onclick="startUpgrade()">Upgrade to Pro</button>
         </div>
 
@@ -793,11 +846,14 @@
 
     let pendingEmail = "";
     let lastAnswerText = "";
+    let currentPlan = "free";
+    let selectedImageBase64 = null;
 
     window.addEventListener("load", async () => {
         try {
             applySavedTheme();
             document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
+            document.getElementById("image-input").addEventListener("change", handleImageSelected);
 
             const topicInput = document.getElementById("topic");
             topicInput.addEventListener("input", updateCharCount);
@@ -834,6 +890,7 @@
         document.getElementById("app-section").style.display = "block";
         document.getElementById("landing-header").style.display = "none";
         document.getElementById("user-email-display").innerText = email;
+        applyPlanFeatures();
         loadHistory();
         checkSubscriptionStatus();
     }
@@ -842,6 +899,7 @@
         document.getElementById("auth-section").style.display = "block";
         document.getElementById("app-section").style.display = "none";
         document.getElementById("landing-header").style.display = "block";
+        clearImage();
         showLogin();
     }
 
@@ -945,6 +1003,63 @@
         }
     }
 
+    function applyPlanFeatures() {
+        const isPro = currentPlan === "pro";
+        const styleSelect = document.getElementById("style-select");
+        const styleLockNote = document.getElementById("style-lock-note");
+        const imageTools = document.getElementById("pro-image-tools");
+
+        styleLockNote.style.display = isPro ? "none" : "block";
+        styleSelect.title = isPro ? "" : "Upgrade to Pro";
+        imageTools.style.display = isPro ? "flex" : "none";
+
+        if (!isPro && (styleSelect.value === "bullets" || styleSelect.value === "detailed")) {
+            styleSelect.value = "normal";
+        }
+        if (!isPro) {
+            clearImage();
+        }
+    }
+
+    function openImagePicker() {
+        if (currentPlan !== "pro") {
+            showAppError("Upgrade to Pro to upload images.");
+            return;
+        }
+        document.getElementById("image-input").click();
+    }
+
+    function handleImageSelected(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        if (currentPlan !== "pro") {
+            showAppError("Upgrade to Pro to upload images.");
+            clearImage();
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+            selectedImageBase64 = reader.result;
+            document.getElementById("image-name").innerText = file.name;
+            document.getElementById("image-preview").style.display = "flex";
+        };
+        reader.onerror = () => {
+            showAppError("Failed to read image. Please try another file.");
+            clearImage();
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function clearImage() {
+        selectedImageBase64 = null;
+        const input = document.getElementById("image-input");
+        const preview = document.getElementById("image-preview");
+        const name = document.getElementById("image-name");
+        if (input) input.value = "";
+        if (name) name.innerText = "";
+        if (preview) preview.style.display = "none";
+    }
+
     async function checkSubscriptionStatus() {
         try {
             const { data: { session } } = await sb.auth.getSession();
@@ -967,18 +1082,22 @@
             const upgradeBtn = document.getElementById("upgrade-btn");
 
             if (data.status === "pro") {
+                currentPlan = "pro";
                 badge.innerText = "Pro";
                 badge.classList.remove("free");
                 badge.classList.add("pro");
                 upgradeBtn.style.display = "none";
             } else {
+                currentPlan = "free";
                 badge.innerText = "Free";
                 badge.classList.remove("pro");
                 badge.classList.add("free");
                 upgradeBtn.style.display = "block";
             }
+            applyPlanFeatures();
         } catch (error) {
-            showAppError("Could not load subscription status. Please try again.");
+            currentPlan = "free";
+            applyPlanFeatures();
         }
     }
 
@@ -1082,6 +1201,10 @@
             const model = document.getElementById("model-select").value;
             const style = document.getElementById("style-select").value;
             if (!topic) return showAppError("Please enter a topic first.");
+            if (currentPlan !== "pro" && (style === "bullets" || style === "detailed")) {
+                upgradePrompt.style.display = "block";
+                return showAppError("Upgrade to Pro to use Bullets and Detailed styles.");
+            }
 
             const { data: { session } } = await sb.auth.getSession();
             if (!session) {
@@ -1106,7 +1229,12 @@
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${session.access_token}`
                 },
-                body: JSON.stringify({ topic, model, style }),
+                body: JSON.stringify({
+                    topic,
+                    model,
+                    style,
+                    image_base64: currentPlan === "pro" ? selectedImageBase64 : null
+                }),
                 signal: controller.signal
             });
 
@@ -1125,11 +1253,15 @@
 
             if (response.status === 403) {
                 upgradePrompt.style.display = "block";
+                if (data && data.error) {
+                    showAppError(data.error);
+                }
                 return;
             }
 
             if (data.answer) {
                 result.innerText = data.answer;
+                result.style.display = "block";
                 result.classList.remove("show");
                 void result.offsetWidth;
                 result.classList.add("show");
@@ -1212,7 +1344,6 @@
             });
 
             if (!response.ok) {
-                showAppError("Could not load recent questions right now.");
                 return;
             }
 
@@ -1241,7 +1372,7 @@
 
             document.getElementById("history-section").style.display = "block";
         } catch (error) {
-            showAppError("Could not load recent questions. Please try again.");
+            // fail silently for history loading
         }
     }
 </script>

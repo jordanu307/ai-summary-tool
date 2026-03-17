@@ -54,7 +54,7 @@ def build_prompt(topic, style):
     return f"Explain this clearly in 3 sentences: {topic}"
 
 
-def generate_answer(model_choice, topic, style):
+def generate_answer(model_choice, topic, style, image_base64=None):
     resolved_key = MODEL_ALIASES.get(model_choice, model_choice)
     config = MODEL_MAP.get(resolved_key)
     if not config:
@@ -68,9 +68,25 @@ def generate_answer(model_choice, topic, style):
     if provider == "groq":
         if not GROQ_API_KEY:
             return None, "Server misconfigured: missing GROQ_API_KEY.", 500
+        messages = [{"role": "user", "content": prompt}]
+        model_to_use = model_name
+
+        if image_base64:
+            image_url = image_base64.strip()
+            if not image_url.startswith("data:image/"):
+                image_url = f"data:image/jpeg;base64,{image_url}"
+            model_to_use = "llava-v1.5-7b-4096-preview"
+            messages = [{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": image_url}},
+                ],
+            }]
+
         response = client.chat.completions.create(
-            model=model_name,
-            messages=[{"role": "user", "content": prompt}]
+            model=model_to_use,
+            messages=messages
         )
         return response.choices[0].message.content, None, 200
 
@@ -126,11 +142,18 @@ def ask():
     topic = data.get("topic", "")
     model_choice = data.get("model", "groq")
     style = data.get("style", "normal")
+    image_base64 = data.get("image_base64")
 
     if not topic or len(topic) > 500:
         return jsonify({"error": "Invalid input"}), 400
 
-    if not is_pro_user(user.id):
+    is_pro = is_pro_user(user.id)
+
+    if not is_pro:
+        if style not in ["normal", "eli5"]:
+            return jsonify({"error": "Upgrade to Pro to use this response style."}), 403
+        if image_base64:
+            return jsonify({"error": "Upgrade to Pro to ask questions about images."}), 403
         try:
             asked_today = count_questions_today(user.id)
         except Exception as e:
@@ -138,11 +161,16 @@ def ask():
             return jsonify({"error": "Usage check failed."}), 500
         if asked_today >= 5:
             return jsonify({
-                "error": "Free limit reached. Upgrade to Pro for unlimited questions."
+                "error": "You've used all 5 free questions today. Upgrade to Pro for unlimited!"
             }), 403
 
     try:
-        answer, error_msg, status_code = generate_answer(model_choice, topic, style)
+        answer, error_msg, status_code = generate_answer(
+            model_choice,
+            topic,
+            style,
+            image_base64=image_base64 if is_pro else None
+        )
         if error_msg:
             return jsonify({"error": error_msg}), status_code
         if not answer:
