@@ -427,14 +427,22 @@
         }
 
         #upgrade-btn {
+            width: 100%;
+            display: block;
             margin-bottom: 14px;
-            background: linear-gradient(120deg, #49c8ff, #5d76ff, #9f58ff, #49c8ff);
+            padding: 14px 16px;
+            border-radius: 14px;
+            background: linear-gradient(120deg, #2f8bff, #5b6dff, #8a48ff, #2f8bff);
             background-size: 240% 240%;
             animation: shiftGradient 8s ease infinite;
-            box-shadow: 0 12px 30px rgba(104, 96, 255, 0.36);
+            box-shadow: 0 12px 30px rgba(90, 92, 255, 0.42);
             color: #ffffff !important;
             border: none !important;
-            font-weight: 800;
+            font-weight: 800 !important;
+            letter-spacing: 0.01em;
+        }
+        #upgrade-btn:hover {
+            filter: brightness(1.12);
         }
         .locked-note {
             margin-top: 4px;
@@ -786,7 +794,7 @@
             </div>
         </div>
 
-        <button class="btn reveal" style="--delay: 120ms;" id="upgrade-btn" onclick="startUpgrade()">Upgrade to Pro</button>
+        <button class="btn" id="upgrade-btn" onclick="startUpgrade()">✨ Upgrade to Pro — $9/month</button>
 
         <div class="form-group reveal" style="--delay: 170ms;">
             <input type="text" id="topic" placeholder="What do you want to learn about?" />
