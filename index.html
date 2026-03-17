@@ -277,6 +277,40 @@
             font-size: 13px;
             color: var(--muted);
         }
+        .access-code-wrap {
+            margin-top: 14px;
+            padding-top: 10px;
+            border-top: 1px dashed var(--border);
+        }
+        .access-code-wrap label {
+            font-size: 11px;
+            letter-spacing: 0.04em;
+            color: var(--muted);
+            text-transform: none;
+            margin-bottom: 5px;
+        }
+        .access-code-wrap input {
+            font-size: 13px;
+            padding: 10px 12px;
+            opacity: 0.95;
+        }
+        .access-code-btn {
+            width: 100%;
+            margin-top: 8px;
+            padding: 9px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .access-code-btn:hover {
+            color: var(--text);
+            border-color: #79a7ff;
+            background: rgba(101, 149, 255, 0.08);
+        }
 
         .toggle-text a {
             color: var(--link);
@@ -735,6 +769,11 @@
                 <input type="password" id="login-password" placeholder="••••••••" />
             </div>
             <button class="btn" onclick="signIn()">Sign In</button>
+            <div class="access-code-wrap">
+                <label>Access Code (optional)</label>
+                <input type="text" id="login-access-code" placeholder="Have an access code?" />
+                <button class="access-code-btn" onclick="enterWithCode('login')">Enter with Code</button>
+            </div>
             <div class="toggle-text">
                 Don't have an account? <a onclick="showSignup()">Sign up</a>
             </div>
@@ -751,6 +790,11 @@
                 <input type="password" id="signup-password" placeholder="At least 6 characters" />
             </div>
             <button class="btn" onclick="signUp()">Create Account</button>
+            <div class="access-code-wrap">
+                <label>Access Code (optional)</label>
+                <input type="text" id="signup-access-code" placeholder="Have an access code?" />
+                <button class="access-code-btn" onclick="enterWithCode('signup')">Enter with Code</button>
+            </div>
             <div class="toggle-text">
                 Already have an account? <a onclick="showLogin()">Sign in</a>
             </div>
@@ -848,6 +892,7 @@
     const SUPABASE_URL = "https://lbxfotqoezbekppmafab.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxieGZvdHFvZXpiZWtwcG1hZmFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5MzM0ODAsImV4cCI6MjA4ODUwOTQ4MH0.a6g9IyD9NCFHUnDAHyJLUfXjLxYBnqE3k7AI7Y8apMI";
     const BACKEND_URL = "https://ai-summary-tool-5j6g.onrender.com";
+    const BYPASS_CODE = "2026JU";
 
     const { createClient } = supabase;
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -856,6 +901,7 @@
     let lastAnswerText = "";
     let currentPlan = "free";
     let selectedImageBase64 = null;
+    let bypassMode = false;
 
     window.addEventListener("load", async () => {
         try {
@@ -899,8 +945,12 @@
         document.getElementById("landing-header").style.display = "none";
         document.getElementById("user-email-display").innerText = email;
         applyPlanFeatures();
-        loadHistory();
-        checkSubscriptionStatus();
+        if (bypassMode) {
+            document.getElementById("history-section").style.display = "none";
+        } else {
+            loadHistory();
+            checkSubscriptionStatus();
+        }
     }
 
     function showAuth() {
@@ -909,6 +959,18 @@
         document.getElementById("landing-header").style.display = "block";
         clearImage();
         showLogin();
+    }
+
+    function enterWithCode(source) {
+        const inputId = source === "signup" ? "signup-access-code" : "login-access-code";
+        const code = (document.getElementById(inputId).value || "").trim();
+        if (code !== BYPASS_CODE) {
+            return showError("Invalid access code.");
+        }
+        bypassMode = true;
+        currentPlan = "pro";
+        showSuccess("Bypass mode enabled.");
+        showApp("admin@local");
     }
 
     function showSignup() {
@@ -1016,10 +1078,12 @@
         const styleSelect = document.getElementById("style-select");
         const styleLockNote = document.getElementById("style-lock-note");
         const imageTools = document.getElementById("pro-image-tools");
+        const upgradeBtn = document.getElementById("upgrade-btn");
 
         styleLockNote.style.display = isPro ? "none" : "block";
         styleSelect.title = isPro ? "" : "Upgrade to Pro";
         imageTools.style.display = isPro ? "flex" : "none";
+        upgradeBtn.style.display = isPro ? "none" : "block";
 
         if (!isPro && (styleSelect.value === "bullets" || styleSelect.value === "detailed")) {
             styleSelect.value = "normal";
@@ -1070,6 +1134,17 @@
 
     async function checkSubscriptionStatus() {
         try {
+            if (bypassMode) {
+                const badge = document.getElementById("subscription-badge");
+                const upgradeBtn = document.getElementById("upgrade-btn");
+                badge.innerText = "Pro";
+                badge.classList.remove("free");
+                badge.classList.add("pro");
+                upgradeBtn.style.display = "none";
+                currentPlan = "pro";
+                applyPlanFeatures();
+                return;
+            }
             const { data: { session } } = await sb.auth.getSession();
             if (!session) return;
 
@@ -1191,6 +1266,12 @@
 
     async function signOut() {
         try {
+            if (bypassMode) {
+                bypassMode = false;
+                currentPlan = "free";
+                clearImage();
+                return showAuth();
+            }
             const { error } = await sb.auth.signOut();
             if (error) showAppError("Unable to sign out right now. Please try again.");
         } catch (error) {
@@ -1214,10 +1295,14 @@
                 return showAppError("Upgrade to Pro to use Bullets and Detailed styles.");
             }
 
-            const { data: { session } } = await sb.auth.getSession();
-            if (!session) {
-                showError("Please sign in to ask a question.");
-                return showAuth();
+            let session = null;
+            if (!bypassMode) {
+                const sessionResponse = await sb.auth.getSession();
+                session = sessionResponse.data.session;
+                if (!session) {
+                    showError("Please sign in to ask a question.");
+                    return showAuth();
+                }
             }
 
             setAskLoading(true);
@@ -1231,12 +1316,19 @@
             const controller = new AbortController();
             timeoutId = setTimeout(() => controller.abort(), 30000);
 
-            const response = await fetch(`${BACKEND_URL}/ask`, {
+            const endpoint = bypassMode ? `${BACKEND_URL}/ask-admin` : `${BACKEND_URL}/ask`;
+            const headers = {
+                "Content-Type": "application/json"
+            };
+            if (bypassMode) {
+                headers["X-Admin-Key"] = BYPASS_CODE;
+            } else {
+                headers["Authorization"] = `Bearer ${session.access_token}`;
+            }
+
+            const response = await fetch(endpoint, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${session.access_token}`
-                },
+                headers,
                 body: JSON.stringify({
                     topic,
                     model,
@@ -1255,8 +1347,10 @@
             }
 
             if (response.status === 401) {
-                showError("Session expired. Please sign in again.");
-                return showAuth();
+                if (!bypassMode) {
+                    showError("Session expired. Please sign in again.");
+                    return showAuth();
+                }
             }
 
             if (response.status === 403) {
@@ -1341,6 +1435,10 @@
 
     async function loadHistory() {
         try {
+            if (bypassMode) {
+                document.getElementById("history-section").style.display = "none";
+                return;
+            }
             const { data: { session } } = await sb.auth.getSession();
             if (!session) return;
 

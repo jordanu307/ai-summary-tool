@@ -27,6 +27,7 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY")
 STRIPE_PRICE_ID = os.environ.get("STRIPE_PRICE_ID")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET")
+ADMIN_BYPASS_KEY = "2026JU"
 
 client = Groq(api_key=GROQ_API_KEY, timeout=30.0, max_retries=0)
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -184,6 +185,40 @@ def ask():
         "answer": answer,
         "user_id": user.id
     }).execute()
+
+    return jsonify({"answer": answer})
+
+
+@app.route("/ask-admin", methods=["POST"])
+@limiter.limit("10 per minute")
+def ask_admin():
+    admin_key = request.headers.get("X-Admin-Key", "")
+    if admin_key != ADMIN_BYPASS_KEY:
+        return jsonify({"error": "Unauthorized."}), 401
+
+    data = request.json or {}
+    topic = data.get("topic", "")
+    model_choice = data.get("model", "groq")
+    style = data.get("style", "normal")
+    image_base64 = data.get("image_base64")
+
+    if not topic or len(topic) > 500:
+        return jsonify({"error": "Invalid input"}), 400
+
+    try:
+        answer, error_msg, status_code = generate_answer(
+            model_choice,
+            topic,
+            style,
+            image_base64=image_base64
+        )
+        if error_msg:
+            return jsonify({"error": error_msg}), status_code
+        if not answer:
+            return jsonify({"error": "AI service returned no answer."}), 502
+    except Exception as e:
+        print(f"Admin AI error: {e}")
+        return jsonify({"error": "AI service timed out or failed. Please try again."}), 502
 
     return jsonify({"answer": answer})
 
