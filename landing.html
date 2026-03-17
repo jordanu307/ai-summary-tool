@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Summary Tool</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #111a2f;
+      --text: #edf3ff;
+      --muted: #9db0d3;
+      --primary: #4f7cff;
+      --accent: #8a48ff;
+      --border: #253554;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      background: radial-gradient(circle at top left, #13244a, transparent 40%), var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 28px 18px 56px; }
+    .hero {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px 28px;
+      background: rgba(17, 26, 47, 0.92);
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    h1 { font-size: 42px; line-height: 1.05; margin-bottom: 12px; }
+    .sub { color: var(--muted); max-width: 700px; margin: 0 auto 20px; }
+    .cta {
+      display: inline-block;
+      padding: 12px 18px;
+      border-radius: 12px;
+      color: #fff;
+      text-decoration: none;
+      font-weight: 700;
+      background: linear-gradient(120deg, var(--primary), var(--accent));
+    }
+    .grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 20px 0; }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      background: rgba(17, 26, 47, 0.8);
+    }
+    .card h3 { margin-bottom: 8px; }
+    .card p { color: var(--muted); font-size: 14px; }
+    .pricing { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .plan { border: 1px solid var(--border); border-radius: 12px; padding: 16px; background: rgba(17, 26, 47, 0.8); }
+    .price { font-size: 28px; font-weight: 800; margin: 8px 0; }
+    ul { margin-left: 18px; color: var(--muted); }
+    .footer-cta { margin-top: 20px; text-align: center; }
+    @media (max-width: 760px) {
+      h1 { font-size: 32px; }
+      .grid, .pricing { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>AI Summary Tool</h1>
+      <p class="sub">Get clear, fast AI answers, switch to chat mode, save conversations, and share helpful results with one click.</p>
+      <a class="cta" href="index.html?mode=signup">Start Free</a>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h3>Instant AI Answers</h3>
+        <p>Ask any question and get concise responses in multiple styles.</p>
+      </article>
+      <article class="card">
+        <h3>Chat + Memory</h3>
+        <p>Turn on Chat Mode to keep context across messages for deeper conversations.</p>
+      </article>
+      <article class="card">
+        <h3>Save Conversations</h3>
+        <p>Name and reload your best chats whenever you need them.</p>
+      </article>
+      <article class="card">
+        <h3>Share Answers</h3>
+        <p>Create public links for useful answers in seconds.</p>
+      </article>
+    </section>
+
+    <section class="pricing">
+      <article class="plan">
+        <h3>Free</h3>
+        <div class="price">$0</div>
+        <ul>
+          <li>5 questions/day</li>
+          <li>Normal + ELI5 styles</li>
+          <li>Recent history</li>
+        </ul>
+      </article>
+      <article class="plan">
+        <h3>Pro</h3>
+        <div class="price">$9/month</div>
+        <ul>
+          <li>Unlimited questions</li>
+          <li>All response styles</li>
+          <li>Image + question support</li>
+          <li>Saved chats + sharing</li>
+        </ul>
+      </article>
+    </section>
+
+    <div class="footer-cta">
+      <a class="cta" href="index.html?mode=signup">Sign Up Now</a>
+    </div>
+  </div>
+</body>
+</html>

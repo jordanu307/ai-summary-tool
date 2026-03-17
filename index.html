@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -431,6 +432,23 @@
             border-color: #79a7ff;
             box-shadow: 0 0 0 4px rgba(101, 149, 255, 0.18);
         }
+        .settings-btn {
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text);
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        .settings-btn:hover {
+            border-color: #79a7ff;
+            box-shadow: 0 0 0 4px rgba(101, 149, 255, 0.18);
+        }
 
         .theme-toggle svg {
             width: 18px;
@@ -550,6 +568,112 @@
             display: block;
             animation: resultIn 0.42s cubic-bezier(.17,.67,.35,1) forwards;
         }
+        .ask-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .ask-row #ask-btn {
+            flex: 1;
+        }
+        #chat-toggle-btn {
+            width: auto;
+            min-width: 132px;
+            margin-top: 6px;
+        }
+        .chat-tools {
+            margin-top: 8px;
+            display: none;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .chat-tools .btn.secondary {
+            width: auto;
+            margin-top: 0;
+            padding: 7px 10px;
+            font-size: 12px;
+        }
+        #chat-box {
+            margin-top: 14px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: color-mix(in srgb, var(--card-solid) 90%, transparent);
+            padding: 12px;
+            max-height: 340px;
+            overflow-y: auto;
+            display: none;
+        }
+        .chat-bubble {
+            max-width: 82%;
+            padding: 10px 12px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            line-height: 1.45;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        .chat-bubble.user {
+            margin-left: auto;
+            background: linear-gradient(135deg, #336cff, #5f72ff);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .chat-bubble.assistant {
+            margin-right: auto;
+            background: var(--result);
+            color: var(--text);
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--border);
+        }
+        .settings-panel {
+            margin-top: 10px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px;
+            background: var(--result);
+            display: none;
+        }
+        .settings-panel h4 {
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        #custom-instructions {
+            width: 100%;
+            min-height: 72px;
+            resize: vertical;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--input-bg);
+            color: var(--text);
+            padding: 10px;
+            font-family: inherit;
+            font-size: 13px;
+        }
+        .saved-chats-row {
+            margin-top: 10px;
+            display: none;
+        }
+        #saved-chats-select {
+            width: 100%;
+        }
+        .share-btn {
+            width: auto;
+            margin-top: 10px;
+            margin-left: 8px;
+            padding: 6px 11px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            display: none;
+            color: var(--text);
+            background: transparent;
+            border: 1px solid var(--border);
+            box-shadow: none;
+        }
+        .share-btn:hover {
+            background: rgba(120, 154, 217, 0.12);
+            transform: translateY(-1px);
+        }
 
         .copy-btn {
             width: auto;
@@ -598,6 +722,36 @@
             font-size: 14px;
             margin-bottom: 12px;
             color: var(--text);
+        }
+        #stats-section {
+            margin-top: 20px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+            display: none;
+        }
+        #stats-section h3 {
+            font-size: 15px;
+            margin-bottom: 10px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .stat-card {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            background: color-mix(in srgb, var(--card-solid) 88%, transparent);
+        }
+        .stat-value {
+            font-size: 18px;
+            font-weight: 800;
+        }
+        .stat-label {
+            font-size: 11px;
+            color: var(--muted);
         }
 
         #history-list {
@@ -834,8 +988,14 @@
                         <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
                     </svg>
                 </button>
+                <button class="settings-btn" id="settings-btn" title="Settings" onclick="toggleSettings()">⚙</button>
                 <button class="logout-btn" onclick="signOut()">Sign out</button>
             </div>
+        </div>
+        <div id="settings-panel" class="settings-panel">
+            <h4>Custom instructions (optional)</h4>
+            <textarea id="custom-instructions" placeholder="Always respond in bullet points, or: You are a science tutor"></textarea>
+            <button class="btn secondary" style="margin-top:8px; width:auto;" onclick="saveCustomInstructions()">Save Instructions</button>
         </div>
 
         <button class="btn" id="upgrade-btn" onclick="startUpgrade()">✨ Upgrade to Pro — $9/month</button>
@@ -872,9 +1032,23 @@
             </div>
         </div>
 
-        <button class="btn reveal" style="--delay: 280ms;" id="ask-btn" onclick="askAI()">Ask AI</button>
+        <div class="ask-row reveal" style="--delay: 280ms;">
+            <button class="btn" id="ask-btn" onclick="askAI()">Ask AI</button>
+            <button class="btn secondary" id="chat-toggle-btn" onclick="toggleChatMode()">Chat Mode: Off</button>
+        </div>
+        <div id="chat-tools" class="chat-tools">
+            <button class="btn secondary" onclick="clearChat()">Clear chat</button>
+            <button class="btn secondary" id="save-chat-btn" onclick="saveCurrentChat()" style="display:none;">Save Chat</button>
+        </div>
+        <div id="saved-chats-row" class="saved-chats-row">
+            <select id="saved-chats-select" onchange="loadSelectedSavedChat()">
+                <option value="">Load saved chat...</option>
+            </select>
+        </div>
+        <div id="chat-box"></div>
         <div id="result"></div>
         <button class="btn copy-btn" id="copy-btn" onclick="copyAnswer()">Copy</button>
+        <button class="share-btn" id="share-btn" onclick="shareAnswer()">Share</button>
 
         <div id="upgrade-prompt" class="error-msg">
             <div>You've used all 5 free questions today. Upgrade to Pro for unlimited!</div>
@@ -884,6 +1058,24 @@
         <div id="history-section" class="reveal" style="--delay: 340ms;">
             <h3>Recent questions</h3>
             <div id="history-list"></div>
+        </div>
+        <div id="stats-section">
+            <h3>My Stats</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-total">0</div>
+                    <div class="stat-label">Total Questions</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-today">0</div>
+                    <div class="stat-label">Questions Today</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-week">0</div>
+                    <div class="stat-label">Questions This Week</div>
+                </div>
+            </div>
+            <canvas id="stats-chart" height="140"></canvas>
         </div>
     </div>
 </div>
@@ -899,24 +1091,39 @@
 
     let pendingEmail = "";
     let lastAnswerText = "";
+    let lastQuestionText = "";
     let currentPlan = "free";
     let selectedImageBase64 = null;
     let bypassMode = false;
+    let chatMode = false;
+    let chatHistory = [];
+    let statsChart = null;
 
     window.addEventListener("load", async () => {
         try {
             applySavedTheme();
             document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
             document.getElementById("image-input").addEventListener("change", handleImageSelected);
+            loadCustomInstructions();
 
             const topicInput = document.getElementById("topic");
             topicInput.addEventListener("input", updateCharCount);
             updateCharCount();
 
-            const { data: { session } } = await sb.auth.getSession();
-            if (session) showApp(session.user.email);
-
             const params = new URLSearchParams(window.location.search);
+            const { data: { session } } = await sb.auth.getSession();
+            if (session) {
+                showApp(session.user.email);
+            } else {
+                const mode = params.get("mode");
+                if (!mode) {
+                    window.location.href = "landing.html";
+                    return;
+                }
+                showAuth();
+                if (mode === "signup") showSignup();
+            }
+
             if (params.get("success") === "true") {
                 showSuccess("You're now Pro!");
             }
@@ -945,11 +1152,16 @@
         document.getElementById("landing-header").style.display = "none";
         document.getElementById("user-email-display").innerText = email;
         applyPlanFeatures();
+        updateChatUi();
         if (bypassMode) {
             document.getElementById("history-section").style.display = "none";
+            document.getElementById("stats-section").style.display = "none";
+            document.getElementById("saved-chats-row").style.display = "none";
         } else {
             loadHistory();
             checkSubscriptionStatus();
+            loadStats();
+            listSavedChats();
         }
     }
 
@@ -1132,6 +1344,213 @@
         if (preview) preview.style.display = "none";
     }
 
+    function toggleSettings() {
+        const panel = document.getElementById("settings-panel");
+        panel.style.display = panel.style.display === "block" ? "none" : "block";
+    }
+
+    function loadCustomInstructions() {
+        const saved = localStorage.getItem("custom_instructions") || "";
+        document.getElementById("custom-instructions").value = saved;
+    }
+
+    function saveCustomInstructions() {
+        const text = document.getElementById("custom-instructions").value || "";
+        localStorage.setItem("custom_instructions", text);
+        showSuccess("Custom instructions saved.");
+    }
+
+    function toggleChatMode() {
+        chatMode = !chatMode;
+        if (!chatMode) {
+            clearChat();
+        }
+        updateChatUi();
+    }
+
+    function updateChatUi() {
+        const toggleBtn = document.getElementById("chat-toggle-btn");
+        const chatBox = document.getElementById("chat-box");
+        const chatTools = document.getElementById("chat-tools");
+        const saveBtn = document.getElementById("save-chat-btn");
+        const savedChatsRow = document.getElementById("saved-chats-row");
+
+        toggleBtn.textContent = chatMode ? "Chat Mode: On" : "Chat Mode: Off";
+        chatBox.style.display = chatMode ? "block" : "none";
+        chatTools.style.display = chatMode ? "flex" : "none";
+        saveBtn.style.display = chatMode && chatHistory.length >= 2 ? "inline-block" : "none";
+        savedChatsRow.style.display = chatMode && !bypassMode ? "block" : "none";
+        if (!chatMode) {
+            chatBox.innerHTML = "";
+        }
+    }
+
+    function renderChat() {
+        const chatBox = document.getElementById("chat-box");
+        chatBox.innerHTML = "";
+        chatHistory.forEach((msg) => {
+            const bubble = document.createElement("div");
+            bubble.className = `chat-bubble ${msg.role === "assistant" ? "assistant" : "user"}`;
+            bubble.textContent = msg.content;
+            chatBox.appendChild(bubble);
+        });
+        chatBox.scrollTop = chatBox.scrollHeight;
+        updateChatUi();
+    }
+
+    function clearChat() {
+        chatHistory = [];
+        renderChat();
+    }
+
+    async function saveCurrentChat() {
+        try {
+            if (bypassMode) return showAppError("Save Chat is unavailable in bypass mode.");
+            if (!chatMode || chatHistory.length < 2) return showAppError("Need at least 2 messages to save.");
+            const name = prompt("Name this conversation:");
+            if (!name) return;
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) return showAuth();
+            const response = await fetch(`${BACKEND_URL}/saved-chats`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({
+                    name: name.trim(),
+                    messages: chatHistory
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) return showAppError(data.error || "Failed to save chat.");
+            showSuccess("Chat saved.");
+            listSavedChats();
+        } catch (error) {
+            showAppError("Failed to save chat.");
+        }
+    }
+
+    async function listSavedChats() {
+        try {
+            if (bypassMode) return;
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) return;
+            const response = await fetch(`${BACKEND_URL}/saved-chats`, {
+                method: "GET",
+                headers: {
+                    "Authorization": `Bearer ${session.access_token}`
+                }
+            });
+            if (!response.ok) return;
+            const data = await response.json();
+            const select = document.getElementById("saved-chats-select");
+            select.innerHTML = '<option value="">Load saved chat...</option>';
+            (data.items || []).forEach((item) => {
+                const option = document.createElement("option");
+                option.value = item.id;
+                option.textContent = item.name;
+                option.dataset.messages = JSON.stringify(item.messages || []);
+                select.appendChild(option);
+            });
+        } catch (error) {
+            // ignore saved chat list errors
+        }
+    }
+
+    function loadSelectedSavedChat() {
+        const select = document.getElementById("saved-chats-select");
+        const opt = select.options[select.selectedIndex];
+        if (!opt || !opt.dataset.messages) return;
+        try {
+            chatHistory = JSON.parse(opt.dataset.messages) || [];
+            chatMode = true;
+            renderChat();
+        } catch (error) {
+            showAppError("Failed to load saved chat.");
+        }
+    }
+
+    async function shareAnswer() {
+        try {
+            if (bypassMode) return showAppError("Share is unavailable in bypass mode.");
+            if (!lastQuestionText || !lastAnswerText) return showAppError("No answer to share yet.");
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) return showAuth();
+            const response = await fetch(`${BACKEND_URL}/share`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({
+                    question: lastQuestionText,
+                    answer: lastAnswerText
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) return showAppError(data.error || "Failed to create share link.");
+            const shareUrl = `${BACKEND_URL}/share/${data.slug}`;
+            await navigator.clipboard.writeText(shareUrl);
+            showSuccess("Share link copied to clipboard.");
+        } catch (error) {
+            showAppError("Failed to share answer.");
+        }
+    }
+
+    async function loadStats() {
+        try {
+            if (bypassMode) return;
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) return;
+            const response = await fetch(`${BACKEND_URL}/stats`, {
+                method: "GET",
+                headers: {
+                    "Authorization": `Bearer ${session.access_token}`
+                }
+            });
+            if (!response.ok) return;
+            const data = await response.json();
+            document.getElementById("stat-total").textContent = data.total_questions || 0;
+            document.getElementById("stat-today").textContent = data.questions_today || 0;
+            document.getElementById("stat-week").textContent = data.questions_this_week || 0;
+            document.getElementById("stats-section").style.display = "block";
+            renderStatsChart(data.daily_counts || {});
+        } catch (error) {
+            // ignore stats errors
+        }
+    }
+
+    function renderStatsChart(dailyCounts) {
+        const labels = Object.keys(dailyCounts).sort();
+        const values = labels.map((d) => dailyCounts[d] || 0);
+        const ctx = document.getElementById("stats-chart").getContext("2d");
+        if (statsChart) statsChart.destroy();
+        statsChart = new Chart(ctx, {
+            type: "bar",
+            data: {
+                labels: labels.map((d) => d.slice(5)),
+                datasets: [{
+                    label: "Questions",
+                    data: values,
+                    backgroundColor: "rgba(78, 141, 255, 0.65)",
+                    borderColor: "rgba(78, 141, 255, 1)",
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
     async function checkSubscriptionStatus() {
         try {
             if (bypassMode) {
@@ -1270,6 +1689,9 @@
                 bypassMode = false;
                 currentPlan = "free";
                 clearImage();
+                clearChat();
+                chatMode = false;
+                updateChatUi();
                 return showAuth();
             }
             const { error } = await sb.auth.signOut();
@@ -1283,12 +1705,14 @@
         let timeoutId = null;
         const result = document.getElementById("result");
         const copyBtn = document.getElementById("copy-btn");
+        const shareBtn = document.getElementById("share-btn");
         const upgradePrompt = document.getElementById("upgrade-prompt");
 
         try {
             const topic = document.getElementById("topic").value.trim();
             const model = document.getElementById("model-select").value;
             const style = document.getElementById("style-select").value;
+            const customInstructions = (localStorage.getItem("custom_instructions") || "").trim();
             if (!topic) return showAppError("Please enter a topic first.");
             if (currentPlan !== "pro" && (style === "bullets" || style === "detailed")) {
                 upgradePrompt.style.display = "block";
@@ -1311,10 +1735,19 @@
             copyBtn.style.display = "none";
             copyBtn.classList.remove("copied");
             copyBtn.textContent = "Copy";
+            shareBtn.style.display = "none";
             upgradePrompt.style.display = "none";
+            lastQuestionText = topic;
 
             const controller = new AbortController();
             timeoutId = setTimeout(() => controller.abort(), 30000);
+
+            let requestChatHistory = null;
+            if (chatMode) {
+                requestChatHistory = [...chatHistory, { role: "user", content: topic }];
+                chatHistory = requestChatHistory;
+                renderChat();
+            }
 
             const endpoint = bypassMode ? `${BACKEND_URL}/ask-admin` : `${BACKEND_URL}/ask`;
             const headers = {
@@ -1333,7 +1766,9 @@
                     topic,
                     model,
                     style,
-                    image_base64: currentPlan === "pro" ? selectedImageBase64 : null
+                    image_base64: currentPlan === "pro" ? selectedImageBase64 : null,
+                    chat_history: chatMode ? requestChatHistory : null,
+                    custom_instructions: customInstructions
                 }),
                 signal: controller.signal
             });
@@ -1362,14 +1797,22 @@
             }
 
             if (data.answer) {
-                result.innerText = data.answer;
-                result.style.display = "block";
-                result.classList.remove("show");
-                void result.offsetWidth;
-                result.classList.add("show");
+                if (chatMode) {
+                    chatHistory.push({ role: "assistant", content: data.answer });
+                    renderChat();
+                    result.style.display = "none";
+                } else {
+                    result.innerText = data.answer;
+                    result.style.display = "block";
+                    result.classList.remove("show");
+                    void result.offsetWidth;
+                    result.classList.add("show");
+                }
                 lastAnswerText = data.answer;
                 copyBtn.style.display = "inline-block";
+                shareBtn.style.display = "inline-block";
                 await loadHistory();
+                await loadStats();
             } else {
                 result.innerText = data.error || "Request failed.";
                 result.classList.remove("show");

@@ -1,5 +1,7 @@
 import os
-from datetime import datetime, timezone
+import secrets
+import html
+from datetime import datetime, timezone, timedelta
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -55,13 +57,39 @@ def build_prompt(topic, style):
     return f"Explain this clearly in 3 sentences: {topic}"
 
 
-def generate_answer(model_choice, topic, style, image_base64=None):
+def build_messages(topic, style, custom_instructions=None, chat_history=None):
+    prompt = build_prompt(topic, style)
+    system_parts = []
+    if custom_instructions:
+        system_parts.append(custom_instructions.strip())
+    if system_parts:
+        messages = [{"role": "system", "content": "\n\n".join(system_parts)}]
+    else:
+        messages = []
+
+    if chat_history:
+        for item in chat_history:
+            role = item.get("role", "")
+            content = item.get("content", "")
+            if role in ["user", "assistant"] and isinstance(content, str) and content.strip():
+                messages.append({"role": role, "content": content.strip()})
+    else:
+        messages.append({"role": "user", "content": prompt})
+    return messages, prompt
+
+
+def generate_answer(
+    model_choice,
+    topic,
+    style,
+    image_base64=None,
+    chat_history=None,
+    custom_instructions=None
+):
     resolved_key = MODEL_ALIASES.get(model_choice, model_choice)
     config = MODEL_MAP.get(resolved_key)
     if not config:
         return None, "Unsupported model selection.", 400
-
-    prompt = build_prompt(topic, style)
 
     provider = config["provider"]
     model_name = config["model"]
@@ -69,7 +97,12 @@ def generate_answer(model_choice, topic, style, image_base64=None):
     if provider == "groq":
         if not GROQ_API_KEY:
             return None, "Server misconfigured: missing GROQ_API_KEY.", 500
-        messages = [{"role": "user", "content": prompt}]
+        messages, prompt = build_messages(
+            topic,
+            style,
+            custom_instructions=custom_instructions,
+            chat_history=chat_history
+        )
         model_to_use = model_name
 
         if image_base64:
@@ -77,6 +110,7 @@ def generate_answer(model_choice, topic, style, image_base64=None):
             if not image_url.startswith("data:image/"):
                 image_url = f"data:image/jpeg;base64,{image_url}"
             model_to_use = "llava-v1.5-7b-4096-preview"
+            # Vision endpoint receives the latest user turn with image attached.
             messages = [{
                 "role": "user",
                 "content": [
@@ -144,6 +178,8 @@ def ask():
     model_choice = data.get("model", "groq")
     style = data.get("style", "normal")
     image_base64 = data.get("image_base64")
+    chat_history = data.get("chat_history") if isinstance(data.get("chat_history"), list) else None
+    custom_instructions = data.get("custom_instructions", "")
 
     if not topic or len(topic) > 500:
         return jsonify({"error": "Invalid input"}), 400
@@ -170,7 +206,9 @@ def ask():
             model_choice,
             topic,
             style,
-            image_base64=image_base64 if is_pro else None
+            image_base64=image_base64 if is_pro else None,
+            chat_history=chat_history,
+            custom_instructions=custom_instructions
         )
         if error_msg:
             return jsonify({"error": error_msg}), status_code
@@ -201,6 +239,8 @@ def ask_admin():
     model_choice = data.get("model", "groq")
     style = data.get("style", "normal")
     image_base64 = data.get("image_base64")
+    chat_history = data.get("chat_history") if isinstance(data.get("chat_history"), list) else None
+    custom_instructions = data.get("custom_instructions", "")
 
     if not topic or len(topic) > 500:
         return jsonify({"error": "Invalid input"}), 400
@@ -210,7 +250,9 @@ def ask_admin():
             model_choice,
             topic,
             style,
-            image_base64=image_base64
+            image_base64=image_base64,
+            chat_history=chat_history,
+            custom_instructions=custom_instructions
         )
         if error_msg:
             return jsonify({"error": error_msg}), status_code
@@ -229,6 +271,172 @@ def subscription_status():
     if not user:
         return jsonify({"error": "Unauthorized. Please log in."}), 401
     return jsonify({"status": "pro" if is_pro_user(user.id) else "free"})
+
+
+@app.route("/saved-chats", methods=["GET"])
+def list_saved_chats():
+    user = get_current_user(request)
+    if not user:
+        return jsonify({"error": "Unauthorized. Please log in."}), 401
+    try:
+        response = supabase.table("saved_chats").select(
+            "id,name,messages,created_at"
+        ).eq("user_id", user.id).order("created_at", desc=True).limit(50).execute()
+        return jsonify({"items": response.data or []})
+    except Exception as e:
+        print(f"Saved chats list error: {e}")
+        return jsonify({"error": "Failed to load saved chats."}), 500
+
+
+@app.route("/saved-chats", methods=["POST"])
+def save_chat():
+    user = get_current_user(request)
+    if not user:
+        return jsonify({"error": "Unauthorized. Please log in."}), 401
+    data = request.json or {}
+    name = (data.get("name") or "").strip()
+    messages = data.get("messages")
+    if not name:
+        return jsonify({"error": "Chat name is required."}), 400
+    if not isinstance(messages, list) or len(messages) < 2:
+        return jsonify({"error": "Need at least 2 messages to save."}), 400
+    try:
+        response = supabase.table("saved_chats").insert({
+            "user_id": user.id,
+            "name": name,
+            "messages": messages,
+        }).execute()
+        rows = response.data or []
+        return jsonify({"item": rows[0] if rows else None})
+    except Exception as e:
+        print(f"Save chat error: {e}")
+        return jsonify({"error": "Failed to save chat."}), 500
+
+
+@app.route("/share", methods=["POST"])
+def share_answer():
+    user = get_current_user(request)
+    if not user:
+        return jsonify({"error": "Unauthorized. Please log in."}), 401
+    data = request.json or {}
+    question = (data.get("question") or "").strip()
+    answer = (data.get("answer") or "").strip()
+    if not question or not answer:
+        return jsonify({"error": "Question and answer are required."}), 400
+    slug = secrets.token_urlsafe(6).replace("_", "").replace("-", "")[:10]
+    try:
+        supabase.table("shared_answers").insert({
+            "slug": slug,
+            "question": question,
+            "answer": answer,
+        }).execute()
+        return jsonify({
+            "slug": slug,
+            "url": f"/share/{slug}",
+            "public_url": f"/share.html?slug={slug}"
+        })
+    except Exception as e:
+        print(f"Share save error: {e}")
+        return jsonify({"error": "Failed to create share link."}), 500
+
+
+@app.route("/share/<slug>", methods=["GET"])
+def get_shared_answer(slug):
+    try:
+        response = supabase.table("shared_answers").select(
+            "slug,question,answer,created_at"
+        ).eq("slug", slug).limit(1).execute()
+        rows = response.data or []
+        if not rows:
+            return jsonify({"error": "Not found."}), 404
+        item = rows[0]
+        question = html.escape(item.get("question", ""))
+        answer = html.escape(item.get("answer", ""))
+        page = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <title>Shared Answer</title>
+          <style>
+            body {{ font-family: Inter, system-ui, sans-serif; background:#0b1220; color:#edf3ff; padding:20px; }}
+            .card {{ max-width:760px; margin:0 auto; border:1px solid #253554; border-radius:14px; padding:16px; background:#111a2f; }}
+            .q,.a {{ border:1px solid #253554; border-radius:10px; padding:12px; margin-top:10px; white-space:pre-wrap; }}
+            .label {{ color:#9db0d3; font-size:12px; margin-bottom:6px; }}
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h1>Shared Answer</h1>
+            <div class="q"><div class="label">Question</div>{question}</div>
+            <div class="a"><div class="label">Answer</div>{answer}</div>
+          </div>
+        </body>
+        </html>
+        """
+        return page
+    except Exception as e:
+        print(f"Share fetch error: {e}")
+        return jsonify({"error": "Failed to load shared answer."}), 500
+
+
+@app.route("/share-data/<slug>", methods=["GET"])
+def get_shared_answer_data(slug):
+    try:
+        response = supabase.table("shared_answers").select(
+            "slug,question,answer,created_at"
+        ).eq("slug", slug).limit(1).execute()
+        rows = response.data or []
+        if not rows:
+            return jsonify({"error": "Not found."}), 404
+        return jsonify({"item": rows[0]})
+    except Exception as e:
+        print(f"Share data fetch error: {e}")
+        return jsonify({"error": "Failed to load shared answer."}), 500
+
+
+@app.route("/stats", methods=["GET"])
+def stats():
+    user = get_current_user(request)
+    if not user:
+        return jsonify({"error": "Unauthorized. Please log in."}), 401
+    try:
+        now = datetime.now(timezone.utc)
+        start_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        start_week = start_today - timedelta(days=6)
+
+        total_resp = supabase.table("questions").select(
+            "id", count="exact"
+        ).eq("user_id", user.id).execute()
+        today_resp = supabase.table("questions").select(
+            "id", count="exact"
+        ).eq("user_id", user.id).gte("created_at", start_today.isoformat()).execute()
+        week_rows_resp = supabase.table("questions").select(
+            "created_at"
+        ).eq("user_id", user.id).gte("created_at", start_week.isoformat()).execute()
+
+        week_rows = week_rows_resp.data or []
+        daily_counts = {}
+        for i in range(7):
+            day = (start_week + timedelta(days=i)).date().isoformat()
+            daily_counts[day] = 0
+        for row in week_rows:
+            created_at = row.get("created_at")
+            if not created_at:
+                continue
+            day_key = created_at[:10]
+            if day_key in daily_counts:
+                daily_counts[day_key] += 1
+
+        return jsonify({
+            "total_questions": total_resp.count or 0,
+            "questions_today": today_resp.count or 0,
+            "questions_this_week": sum(daily_counts.values()),
+            "daily_counts": daily_counts,
+        })
+    except Exception as e:
+        print(f"Stats error: {e}")
+        return jsonify({"error": "Failed to load stats."}), 500
 
 
 @app.route("/create-checkout-session", methods=["POST"])

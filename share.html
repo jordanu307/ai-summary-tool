@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shared Answer</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #111a2f;
+      --text: #edf3ff;
+      --muted: #9db0d3;
+      --border: #253554;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      background: radial-gradient(circle at top left, #13244a, transparent 40%), var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      width: 100%;
+      max-width: 760px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(17, 26, 47, 0.92);
+      padding: 20px;
+    }
+    h1 { margin-bottom: 14px; }
+    .muted { color: var(--muted); margin-bottom: 14px; }
+    .q, .a {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 10px;
+      background: rgba(10, 16, 30, 0.5);
+      white-space: pre-wrap;
+    }
+    .label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Shared Answer</h1>
+    <div class="muted" id="meta">Loading...</div>
+    <div class="q">
+      <div class="label">Question</div>
+      <div id="question"></div>
+    </div>
+    <div class="a">
+      <div class="label">Answer</div>
+      <div id="answer"></div>
+    </div>
+  </div>
+
+  <script>
+    const BACKEND_URL = "https://ai-summary-tool-5j6g.onrender.com";
+
+    async function loadShare() {
+      const params = new URLSearchParams(window.location.search);
+      const slug = params.get("slug");
+      if (!slug) {
+        document.getElementById("meta").textContent = "Missing share slug.";
+        return;
+      }
+      try {
+        const response = await fetch(`${BACKEND_URL}/share-data/${slug}`);
+        const data = await response.json();
+        if (!response.ok || !data.item) {
+          document.getElementById("meta").textContent = data.error || "Shared answer not found.";
+          return;
+        }
+        const item = data.item;
+        document.getElementById("meta").textContent = `Shared link: ${item.slug}`;
+        document.getElementById("question").textContent = item.question;
+        document.getElementById("answer").textContent = item.answer;
+      } catch (error) {
+        document.getElementById("meta").textContent = "Failed to load shared answer.";
+      }
+    }
+
+    loadShare();
+  </script>
+</body>
+</html>
