@@ -143,9 +143,10 @@
         }
         .user-bar {
             display: flex;
-            flex-direction: column;
-            align-items: flex-end;
+            align-items: center;
+            justify-content: flex-end;
             gap: 8px;
+            flex-wrap: wrap;
         }
         .user-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
         .user-bar span { font-size: 13px; color: var(--muted); }
@@ -262,15 +263,16 @@
         }
         .copy-btn:hover { background: rgba(140, 165, 220, 0.08); }
         .theme-toggle {
-            position: absolute;
-            top: 14px;
-            right: 14px;
+            position: static;
             border: 1px solid var(--border);
             background: transparent;
             color: var(--text);
             border-radius: 999px;
-            padding: 6px 8px;
+            padding: 6px;
             cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         .theme-toggle svg { width: 18px; height: 18px; display: block; }
         .theme-toggle .icon-sun { display: none; }
@@ -294,7 +296,7 @@
                 align-items: stretch;
             }
             .user-bar {
-                align-items: flex-start;
+                justify-content: flex-start;
             }
             .user-info {
                 justify-content: flex-start;
@@ -308,15 +310,6 @@
 </head>
 <body class="dark">
 <div class="container">
-    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">
-        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
-        </svg>
-        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="4"></circle>
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
-        </svg>
-    </button>
     <div id="landing-header">
         <h1>AI Summary Tool</h1>
         <p class="subtitle">Ask anything and get concise, high-quality answers instantly.</p>
@@ -387,6 +380,15 @@
                     <span id="user-email-display"></span>
                     <span id="subscription-badge" class="badge free">Free</span>
                 </div>
+                <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">
+                    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
+                    </svg>
+                    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+                    </svg>
+                </button>
                 <button class="logout-btn" onclick="signOut()">Sign out</button>
             </div>
         </div>
@@ -437,24 +439,26 @@
     let lastAnswerText = "";
 
     window.addEventListener("load", async () => {
-        applySavedTheme();
-        document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
-        const topicInput = document.getElementById("topic");
-        topicInput.addEventListener("input", updateCharCount);
-        updateCharCount();
+        try {
+            applySavedTheme();
+            document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
+            const topicInput = document.getElementById("topic");
+            topicInput.addEventListener("input", updateCharCount);
+            updateCharCount();
 
-        const { data: { session } } = await sb.auth.getSession();
-        if (session) showApp(session.user.email);
-        const params = new URLSearchParams(window.location.search);
-        if (params.get("success") === "true") {
-            showSuccess("You're now Pro!");
+            const { data: { session } } = await sb.auth.getSession();
+            if (session) showApp(session.user.email);
+            const params = new URLSearchParams(window.location.search);
+            if (params.get("success") === "true") {
+                showSuccess("You're now Pro!");
+            }
+            await pingHealth(true);
+            setInterval(() => {
+                pingHealth(false);
+            }, 4 * 60 * 1000);
+        } catch (error) {
+            showError("Unable to initialize the app. Please refresh and try again.");
         }
-        // Warm up backend to reduce cold-start delays on first ask
-        fetch("https://ai-summary-tool-5j6g.onrender.com/health").catch(() => {});
-        // Keep the free Render instance awake
-        setInterval(() => {
-            fetch("https://ai-summary-tool-5j6g.onrender.com/health").catch(() => {});
-        }, 5 * 60 * 1000);
     });
 
     sb.auth.onAuthStateChange((event, session) => {
@@ -519,17 +523,43 @@
         document.getElementById("success-box").style.display = "none";
     }
 
-    async function checkSubscriptionStatus() {
-        const { data: { session } } = await sb.auth.getSession();
-        if (!session) return;
+    function showAppError(msg) {
+        const appSectionVisible = document.getElementById("app-section").style.display === "block";
+        if (!appSectionVisible) {
+            showError(msg);
+            return;
+        }
+        const result = document.getElementById("result");
+        result.innerText = msg;
+        result.style.display = "block";
+        result.classList.remove("show");
+        result.classList.add("show");
+    }
+
+    async function pingHealth(showFailureMessage) {
         try {
+            await fetch("https://ai-summary-tool-5j6g.onrender.com/health");
+        } catch (error) {
+            if (showFailureMessage) {
+                showError("Server is waking up. Your first request may take a few seconds.");
+            }
+        }
+    }
+
+    async function checkSubscriptionStatus() {
+        try {
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) return;
             const response = await fetch("https://ai-summary-tool-5j6g.onrender.com/subscription-status", {
                 method: "GET",
                 headers: {
                     "Authorization": `Bearer ${session.access_token}`
                 }
             });
-            if (!response.ok) return;
+            if (!response.ok) {
+                showAppError("Could not load subscription status right now.");
+                return;
+            }
             const data = await response.json();
             const badge = document.getElementById("subscription-badge");
             const upgradeBtn = document.getElementById("upgrade-btn");
@@ -544,8 +574,8 @@
                 badge.classList.add("free");
                 upgradeBtn.style.display = "block";
             }
-        } catch (e) {
-            // ignore
+        } catch (error) {
+            showAppError("Could not load subscription status. Please try again.");
         }
     }
 
@@ -575,92 +605,121 @@
     }
 
     async function signIn() {
-        const email = document.getElementById("login-email").value;
-        const password = document.getElementById("login-password").value;
-        if (!email || !password) return showError("Please fill in all fields.");
-        const { error } = await sb.auth.signInWithPassword({ email, password });
-        if (error) showError(error.message);
+        try {
+            const email = document.getElementById("login-email").value;
+            const password = document.getElementById("login-password").value;
+            if (!email || !password) return showError("Please fill in all fields.");
+            const { error } = await sb.auth.signInWithPassword({ email, password });
+            if (error) showError(error.message);
+        } catch (error) {
+            showError("Sign in failed. Please try again.");
+        }
     }
 
     async function signUp() {
-        const email = document.getElementById("signup-email").value;
-        const password = document.getElementById("signup-password").value;
-        if (!email || !password) return showError("Please fill in all fields.");
-        if (password.length < 6) return showError("Password must be at least 6 characters.");
+        try {
+            const email = document.getElementById("signup-email").value;
+            const password = document.getElementById("signup-password").value;
+            if (!email || !password) return showError("Please fill in all fields.");
+            if (password.length < 6) return showError("Password must be at least 6 characters.");
 
-        const { error } = await sb.auth.signUp({
-            email,
-            password,
-            options: {
-                emailRedirectTo: "https://rad-faun-c590ff.netlify.app"
+            const { error } = await sb.auth.signUp({
+                email,
+                password,
+                options: {
+                    emailRedirectTo: "https://rad-faun-c590ff.netlify.app"
+                }
+            });
+            if (error) {
+                showError(error.message);
+            } else {
+                pendingEmail = email;
+                showOTP(email);
+                showSuccess("Check your email for a 6-digit verification code!");
             }
-        });
-        if (error) {
-            showError(error.message);
-        } else {
-            pendingEmail = email;
-            showOTP(email);
-            showSuccess("Check your email for a 6-digit verification code!");
+        } catch (error) {
+            showError("Sign up failed. Please try again.");
         }
     }
 
     async function verifyOTP() {
-        const code = document.getElementById("otp-code").value.trim();
-        if (!code || code.length !== 6) return showError("Please enter the 6-digit code.");
+        try {
+            const code = document.getElementById("otp-code").value.trim();
+            if (!code || code.length !== 6) return showError("Please enter the 6-digit code.");
+            if (!pendingEmail) return showError("Please start sign up again before verifying.");
 
-        const { error } = await sb.auth.verifyOtp({
-            email: pendingEmail,
-            token: code,
-            type: "email"
-        });
+            const { error } = await sb.auth.verifyOtp({
+                email: pendingEmail,
+                token: code,
+                type: "email"
+            });
 
-        if (error) {
-            showError("Invalid or expired code. Try again.");
+            if (error) {
+                showError("Invalid or expired code. Try again.");
+                return;
+            }
+            showSuccess("Email verified. Signing you in...");
+        } catch (error) {
+            showError("Verification failed. Please try again.");
         }
-        // if success, onAuthStateChange will fire and show the app automatically
     }
 
     async function resendOTP() {
-        const { error } = await sb.auth.resend({
-            type: "signup",
-            email: pendingEmail
-        });
-        if (error) {
-            showError(error.message);
-        } else {
-            showSuccess("New code sent! Check your email.");
+        try {
+            if (!pendingEmail) return showError("Please start sign up first.");
+            const { error } = await sb.auth.resend({
+                type: "signup",
+                email: pendingEmail
+            });
+            if (error) {
+                showError(error.message);
+            } else {
+                showSuccess("New code sent! Check your email.");
+            }
+        } catch (error) {
+            showError("Could not resend code. Please try again.");
         }
     }
 
     async function signOut() {
-        await sb.auth.signOut();
+        try {
+            const { error } = await sb.auth.signOut();
+            if (error) {
+                showAppError("Unable to sign out right now. Please try again.");
+            }
+        } catch (error) {
+            showAppError("Unable to sign out right now. Please try again.");
+        }
     }
 
     async function askAI() {
-        const topic = document.getElementById("topic").value.trim();
-        const model = document.getElementById("model-select").value;
-        const style = document.getElementById("style-select").value;
+        let timeoutId = null;
         const btn = document.getElementById("ask-btn");
         const result = document.getElementById("result");
         const copyBtn = document.getElementById("copy-btn");
         const upgradePrompt = document.getElementById("upgrade-prompt");
-
-        if (!topic) return;
-
-        const { data: { session } } = await sb.auth.getSession();
-        if (!session) return showAuth();
-
-        btn.disabled = true;
-        btn.innerText = "Thinking...";
-        result.style.display = "none";
-        result.classList.remove("show");
-        copyBtn.style.display = "none";
-        upgradePrompt.style.display = "none";
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
-
         try {
+            const topic = document.getElementById("topic").value.trim();
+            const model = document.getElementById("model-select").value;
+            const style = document.getElementById("style-select").value;
+
+            if (!topic) return showAppError("Please enter a topic first.");
+
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) {
+                showError("Please sign in to ask a question.");
+                return showAuth();
+            }
+
+            btn.disabled = true;
+            btn.innerText = "Thinking...";
+            result.style.display = "none";
+            result.classList.remove("show");
+            copyBtn.style.display = "none";
+            upgradePrompt.style.display = "none";
+
+            const controller = new AbortController();
+            timeoutId = setTimeout(() => controller.abort(), 30000);
             const response = await fetch("https://ai-summary-tool-5j6g.onrender.com/ask", {
                 method: "POST",
                 headers: {
@@ -679,7 +738,10 @@
                 data = { error: rawText || "Unexpected response from server." };
             }
 
-            if (response.status === 401) return showAuth();
+            if (response.status === 401) {
+                showError("Session expired. Please sign in again.");
+                return showAuth();
+            }
             if (response.status === 403) {
                 result.style.display = "none";
                 upgradePrompt.style.display = "block";
@@ -698,24 +760,27 @@
                 result.classList.add("show");
             }
         } catch (error) {
-            if (error.name === "AbortError") {
+            if (error && error.name === "AbortError") {
                 result.innerText = "Request timed out. Please try again.";
             } else {
-                result.innerText = "Something went wrong. Try again.";
+                result.innerText = "Something went wrong while asking AI. Please try again.";
             }
             result.style.display = "block";
             result.classList.add("show");
         } finally {
-            clearTimeout(timeoutId);
+            if (timeoutId) clearTimeout(timeoutId);
             btn.disabled = false;
             btn.innerText = "Ask AI";
         }
     }
 
     async function startUpgrade() {
-        const { data: { session } } = await sb.auth.getSession();
-        if (!session) return showAuth();
         try {
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) {
+                showError("Please sign in to upgrade.");
+                return showAuth();
+            }
             const response = await fetch("https://ai-summary-tool-5j6g.onrender.com/create-checkout-session", {
                 method: "POST",
                 headers: {
@@ -727,40 +792,42 @@
             if (data.url) {
                 window.location.href = data.url;
             } else {
-                showError(data.error || "Unable to start checkout.");
+                showAppError(data.error || "Unable to start checkout.");
             }
-        } catch (e) {
-            showError("Unable to start checkout.");
+        } catch (error) {
+            showAppError("Unable to start checkout. Please try again.");
         }
     }
 
     async function copyAnswer() {
-        const copyBtn = document.getElementById("copy-btn");
-        if (!lastAnswerText) return;
         try {
+            const copyBtn = document.getElementById("copy-btn");
+            if (!lastAnswerText) return showAppError("No answer yet. Ask a question first.");
             await navigator.clipboard.writeText(lastAnswerText);
             const original = copyBtn.innerText;
             copyBtn.innerText = "Copied!";
             setTimeout(() => {
                 copyBtn.innerText = original;
             }, 2000);
-        } catch (e) {
-            showError("Unable to copy. Please copy manually.");
+        } catch (error) {
+            showAppError("Unable to copy. Please copy manually.");
         }
     }
 
     async function loadHistory() {
-        const { data: { session } } = await sb.auth.getSession();
-        if (!session) return;
-
         try {
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) return;
             const response = await fetch("https://ai-summary-tool-5j6g.onrender.com/history", {
                 method: "GET",
                 headers: {
                     "Authorization": `Bearer ${session.access_token}`
                 }
             });
-            if (!response.ok) return;
+            if (!response.ok) {
+                showAppError("Could not load recent questions right now.");
+                return;
+            }
             const data = await response.json();
             const list = document.getElementById("history-list");
             list.innerHTML = "";
@@ -778,8 +845,8 @@
                 list.appendChild(div);
             });
             document.getElementById("history-section").style.display = "block";
-        } catch (e) {
-            // ignore history errors
+        } catch (error) {
+            showAppError("Could not load recent questions. Please try again.");
         }
     }
 </script>
