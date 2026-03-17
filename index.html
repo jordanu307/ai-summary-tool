@@ -537,7 +537,7 @@
         const { data: { session } } = await sb.auth.getSession();
         if (!session) return showAuth();
         try {
-            const response = await fetch("/create-checkout-session", {
+            const response = await fetch("https://ai-summary-tool-5j6g.onrender.com/create-checkout-session", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
