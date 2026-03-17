@@ -83,6 +83,8 @@ def get_current_user(request):
     if not auth_header or not auth_header.startswith("Bearer "):
         return None
 
+   
+
 
 def is_pro_user(user_id):
     try:
@@ -183,8 +185,8 @@ def create_checkout_session():
         session = stripe.checkout.Session.create(
             mode="subscription",
             line_items=[{"price": STRIPE_PRICE_ID, "quantity": 1}],
-            success_url="https://rad-faun-c590ff.netlify.app/?success=true",
-            cancel_url="https://rad-faun-c590ff.netlify.app/?canceled=true",
+            success_url="https://ai-summary-tool-seven.vercel.app/?success=true",
+            cancel_url="https://ai-summary-tool-seven.vercel.app/?canceled=true",
             client_reference_id=user.id,
             metadata={"user_id": user.id},
             subscription_data={"metadata": {"user_id": user.id}},
