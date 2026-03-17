@@ -583,7 +583,7 @@
         }
         .chat-tools {
             margin-top: 8px;
-            display: none;
+            display: flex;
             gap: 8px;
             flex-wrap: wrap;
         }
@@ -626,12 +626,10 @@
             border: 1px solid var(--border);
         }
         .settings-panel {
-            margin-top: 10px;
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 10px;
             background: var(--result);
-            display: none;
         }
         .settings-panel h4 {
             font-size: 13px;
@@ -724,10 +722,7 @@
             color: var(--text);
         }
         #stats-section {
-            margin-top: 20px;
-            padding-top: 12px;
-            border-top: 1px solid var(--border);
-            display: none;
+            display: block;
         }
         #stats-section h3 {
             font-size: 15px;
@@ -752,6 +747,38 @@
         .stat-label {
             font-size: 11px;
             color: var(--muted);
+        }
+        .tab-nav {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 10px 0 12px;
+        }
+        .tab-btn {
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--muted);
+            padding: 8px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .tab-btn.active {
+            color: var(--text);
+            border-color: #79a7ff;
+            background: rgba(101, 149, 255, 0.16);
+        }
+        .tab-panel {
+            display: none;
+            opacity: 0;
+        }
+        .tab-panel.active {
+            display: block;
+            animation: panelFade 180ms ease forwards;
+        }
+        @keyframes panelFade {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         #history-list {
@@ -992,90 +1019,111 @@
                 <button class="logout-btn" onclick="signOut()">Sign out</button>
             </div>
         </div>
-        <div id="settings-panel" class="settings-panel">
-            <h4>Custom instructions (optional)</h4>
-            <textarea id="custom-instructions" placeholder="Always respond in bullet points, or: You are a science tutor"></textarea>
-            <button class="btn secondary" style="margin-top:8px; width:auto;" onclick="saveCustomInstructions()">Save Instructions</button>
+        <div class="tab-nav">
+            <button class="tab-btn active" data-tab="ask" onclick="setActiveTab('ask')">Ask AI</button>
+            <button class="tab-btn" data-tab="chat" onclick="setActiveTab('chat')">Chat Mode</button>
+            <button class="tab-btn" data-tab="saved" onclick="setActiveTab('saved')">Saved Chats</button>
+            <button class="tab-btn" data-tab="stats" onclick="setActiveTab('stats')">Stats</button>
+            <button class="tab-btn" data-tab="settings" onclick="setActiveTab('settings')">Settings</button>
         </div>
 
-        <button class="btn" id="upgrade-btn" onclick="startUpgrade()">✨ Upgrade to Pro — $9/month</button>
+        <div id="composer-section">
+            <button class="btn" id="upgrade-btn" onclick="startUpgrade()">✨ Upgrade to Pro — $9/month</button>
 
-        <div class="form-group reveal" style="--delay: 170ms;">
-            <input type="text" id="topic" placeholder="What do you want to learn about?" />
-        </div>
-        <div id="char-count" class="char-count reveal" style="--delay: 190ms;">0 / 500 characters</div>
-        <div id="pro-image-tools" class="reveal" style="--delay: 205ms;">
-            <input type="file" id="image-input" accept="image/*" style="display:none;" />
-            <button class="btn secondary" id="image-upload-btn" onclick="openImagePicker()">📷 Upload Image</button>
-            <div id="image-preview">
-                <span id="image-name"></span>
-                <button class="btn secondary" id="clear-image-btn" onclick="clearImage()">Remove</button>
+            <div class="form-group reveal" style="--delay: 170ms;">
+                <input type="text" id="topic" placeholder="What do you want to learn about?" />
+            </div>
+            <div id="char-count" class="char-count reveal" style="--delay: 190ms;">0 / 500 characters</div>
+            <div id="pro-image-tools" class="reveal" style="--delay: 205ms;">
+                <input type="file" id="image-input" accept="image/*" style="display:none;" />
+                <button class="btn secondary" id="image-upload-btn" onclick="openImagePicker()">📷 Upload Image</button>
+                <div id="image-preview">
+                    <span id="image-name"></span>
+                    <button class="btn secondary" id="clear-image-btn" onclick="clearImage()">Remove</button>
+                </div>
+            </div>
+
+            <div class="row reveal" style="--delay: 230ms;">
+                <div class="form-group">
+                    <label>AI Model</label>
+                    <select id="model-select">
+                        <option value="groq">Groq (llama-3.3-70b-versatile)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Response Style</label>
+                    <select id="style-select" title="Upgrade to Pro for Bullets and Detailed">
+                        <option value="normal">Normal</option>
+                        <option value="eli5">Explain like I'm 5</option>
+                        <option value="bullets">🔒 Bullet points (Pro)</option>
+                        <option value="detailed">🔒 Detailed (Pro)</option>
+                    </select>
+                    <div id="style-lock-note" class="locked-note" title="Upgrade to Pro"> <span class="lock">🔒</span>Bullets and Detailed are Pro features</div>
+                </div>
+            </div>
+
+            <div class="ask-row reveal" style="--delay: 280ms;">
+                <button class="btn" id="ask-btn" onclick="askAI()">Ask AI</button>
             </div>
         </div>
 
-        <div class="row reveal" style="--delay: 230ms;">
-            <div class="form-group">
-                <label>AI Model</label>
-                <select id="model-select">
-                    <option value="groq">Groq (llama-3.3-70b-versatile)</option>
+        <div id="tab-ask" class="tab-panel active">
+            <div id="result"></div>
+            <button class="btn copy-btn" id="copy-btn" onclick="copyAnswer()">Copy</button>
+            <button class="share-btn" id="share-btn" onclick="shareAnswer()">Share</button>
+            <div id="upgrade-prompt" class="error-msg">
+                <div>You've used all 5 free questions today. Upgrade to Pro for unlimited!</div>
+                <button class="btn secondary" style="margin-top:10px;" onclick="startUpgrade()">Upgrade to Pro</button>
+            </div>
+            <div id="history-section" class="reveal" style="--delay: 340ms;">
+                <h3>Recent questions</h3>
+                <div id="history-list"></div>
+            </div>
+        </div>
+
+        <div id="tab-chat" class="tab-panel">
+            <div id="chat-tools" class="chat-tools">
+                <button class="btn secondary" onclick="clearChat()">Clear chat</button>
+                <button class="btn secondary" id="save-chat-btn" onclick="saveCurrentChat()" style="display:none;">Save Chat</button>
+            </div>
+            <div id="chat-box"></div>
+        </div>
+
+        <div id="tab-saved" class="tab-panel">
+            <div id="saved-chats-row" class="saved-chats-row">
+                <select id="saved-chats-select" onchange="loadSelectedSavedChat()">
+                    <option value="">Load saved chat...</option>
                 </select>
             </div>
-            <div class="form-group">
-                <label>Response Style</label>
-                <select id="style-select" title="Upgrade to Pro for Bullets and Detailed">
-                    <option value="normal">Normal</option>
-                    <option value="eli5">Explain like I'm 5</option>
-                    <option value="bullets">🔒 Bullet points (Pro)</option>
-                    <option value="detailed">🔒 Detailed (Pro)</option>
-                </select>
-                <div id="style-lock-note" class="locked-note" title="Upgrade to Pro"> <span class="lock">🔒</span>Bullets and Detailed are Pro features</div>
+        </div>
+
+        <div id="tab-stats" class="tab-panel">
+            <div id="stats-section">
+                <h3>My Stats</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-total">0</div>
+                        <div class="stat-label">Total Questions</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-today">0</div>
+                        <div class="stat-label">Questions Today</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-week">0</div>
+                        <div class="stat-label">Questions This Week</div>
+                    </div>
+                </div>
+                <canvas id="stats-chart" height="140"></canvas>
             </div>
         </div>
 
-        <div class="ask-row reveal" style="--delay: 280ms;">
-            <button class="btn" id="ask-btn" onclick="askAI()">Ask AI</button>
-            <button class="btn secondary" id="chat-toggle-btn" onclick="toggleChatMode()">Chat Mode: Off</button>
-        </div>
-        <div id="chat-tools" class="chat-tools">
-            <button class="btn secondary" onclick="clearChat()">Clear chat</button>
-            <button class="btn secondary" id="save-chat-btn" onclick="saveCurrentChat()" style="display:none;">Save Chat</button>
-        </div>
-        <div id="saved-chats-row" class="saved-chats-row">
-            <select id="saved-chats-select" onchange="loadSelectedSavedChat()">
-                <option value="">Load saved chat...</option>
-            </select>
-        </div>
-        <div id="chat-box"></div>
-        <div id="result"></div>
-        <button class="btn copy-btn" id="copy-btn" onclick="copyAnswer()">Copy</button>
-        <button class="share-btn" id="share-btn" onclick="shareAnswer()">Share</button>
-
-        <div id="upgrade-prompt" class="error-msg">
-            <div>You've used all 5 free questions today. Upgrade to Pro for unlimited!</div>
-            <button class="btn secondary" style="margin-top:10px;" onclick="startUpgrade()">Upgrade to Pro</button>
-        </div>
-
-        <div id="history-section" class="reveal" style="--delay: 340ms;">
-            <h3>Recent questions</h3>
-            <div id="history-list"></div>
-        </div>
-        <div id="stats-section">
-            <h3>My Stats</h3>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-value" id="stat-total">0</div>
-                    <div class="stat-label">Total Questions</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="stat-today">0</div>
-                    <div class="stat-label">Questions Today</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="stat-week">0</div>
-                    <div class="stat-label">Questions This Week</div>
-                </div>
+        <div id="tab-settings" class="tab-panel">
+            <div id="settings-panel" class="settings-panel">
+                <h4>Custom instructions (optional)</h4>
+                <textarea id="custom-instructions" placeholder="Always respond in bullet points, or: You are a science tutor"></textarea>
+                <button class="btn secondary" style="margin-top:8px; width:auto;" onclick="saveCustomInstructions()">Save Instructions</button>
             </div>
-            <canvas id="stats-chart" height="140"></canvas>
         </div>
     </div>
 </div>
@@ -1098,6 +1146,7 @@
     let chatMode = false;
     let chatHistory = [];
     let statsChart = null;
+    let activeTab = "ask";
 
     window.addEventListener("load", async () => {
         try {
@@ -1152,6 +1201,7 @@
         document.getElementById("landing-header").style.display = "none";
         document.getElementById("user-email-display").innerText = email;
         applyPlanFeatures();
+        setActiveTab("ask");
         updateChatUi();
         if (bypassMode) {
             document.getElementById("history-section").style.display = "none";
@@ -1345,8 +1395,7 @@
     }
 
     function toggleSettings() {
-        const panel = document.getElementById("settings-panel");
-        panel.style.display = panel.style.display === "block" ? "none" : "block";
+        setActiveTab("settings");
     }
 
     function loadCustomInstructions() {
@@ -1360,28 +1409,45 @@
         showSuccess("Custom instructions saved.");
     }
 
-    function toggleChatMode() {
-        chatMode = !chatMode;
-        if (!chatMode) {
-            clearChat();
-        }
-        updateChatUi();
-    }
-
     function updateChatUi() {
-        const toggleBtn = document.getElementById("chat-toggle-btn");
         const chatBox = document.getElementById("chat-box");
         const chatTools = document.getElementById("chat-tools");
         const saveBtn = document.getElementById("save-chat-btn");
-        const savedChatsRow = document.getElementById("saved-chats-row");
 
-        toggleBtn.textContent = chatMode ? "Chat Mode: On" : "Chat Mode: Off";
-        chatBox.style.display = chatMode ? "block" : "none";
-        chatTools.style.display = chatMode ? "flex" : "none";
+        chatBox.style.display = "block";
+        chatTools.style.display = "flex";
         saveBtn.style.display = chatMode && chatHistory.length >= 2 ? "inline-block" : "none";
-        savedChatsRow.style.display = chatMode && !bypassMode ? "block" : "none";
-        if (!chatMode) {
-            chatBox.innerHTML = "";
+    }
+
+    function setActiveTab(tab) {
+        activeTab = tab;
+        const tabButtons = document.querySelectorAll(".tab-btn");
+        const panels = document.querySelectorAll(".tab-panel");
+        tabButtons.forEach((btn) => {
+            const isActive = btn.dataset.tab === tab;
+            btn.classList.toggle("active", isActive);
+        });
+        panels.forEach((panel) => {
+            panel.classList.remove("active");
+        });
+        const panel = document.getElementById(`tab-${tab}`);
+        if (panel) panel.classList.add("active");
+
+        const composer = document.getElementById("composer-section");
+        const savedChatsRow = document.getElementById("saved-chats-row");
+        composer.style.display = (tab === "ask" || tab === "chat") ? "block" : "none";
+        savedChatsRow.style.display = tab === "saved" ? "block" : "none";
+
+        chatMode = tab === "chat";
+        if (tab === "chat") {
+            updateChatUi();
+            renderChat();
+        }
+        if (tab === "saved") {
+            listSavedChats();
+        }
+        if (tab === "stats") {
+            loadStats();
         }
     }
 
@@ -1464,7 +1530,7 @@
         if (!opt || !opt.dataset.messages) return;
         try {
             chatHistory = JSON.parse(opt.dataset.messages) || [];
-            chatMode = true;
+            setActiveTab("chat");
             renderChat();
         } catch (error) {
             showAppError("Failed to load saved chat.");
@@ -1709,7 +1775,8 @@
         const upgradePrompt = document.getElementById("upgrade-prompt");
 
         try {
-            const topic = document.getElementById("topic").value.trim();
+            const topicInput = document.getElementById("topic");
+            const topic = topicInput.value.trim();
             const model = document.getElementById("model-select").value;
             const style = document.getElementById("style-select").value;
             const customInstructions = (localStorage.getItem("custom_instructions") || "").trim();
@@ -1813,6 +1880,9 @@
                 shareBtn.style.display = "inline-block";
                 await loadHistory();
                 await loadStats();
+                topicInput.value = "";
+                updateCharCount();
+                topicInput.focus();
             } else {
                 result.innerText = data.error || "Request failed.";
                 result.classList.remove("show");
