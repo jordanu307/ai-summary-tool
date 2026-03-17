@@ -79,12 +79,9 @@ def generate_answer(model_choice, topic, style):
 def get_current_user(request):
     auth_header = request.headers.get("Authorization")
     print(f"Auth header received: {auth_header}")
-
-   if not auth_header or not auth_header.startswith("Bearer "):
+    if not auth_header or not auth_header.startswith("Bearer "):
         return None
-
     token = auth_header.split(" ")[1]
-
     try:
         response = supabase.auth.get_user(token)
         return response.user
@@ -93,7 +90,7 @@ def get_current_user(request):
         return None
 
 
-def is_pro_user
+def is_pro_user(user_id):
     try:
         response = supabase.table("subscriptions").select("status").eq(
             "user_id", user_id
@@ -115,7 +112,7 @@ def count_questions_today(user_id):
     response = supabase.table("questions").select(
         "id", count="exact"
     ).eq("user_id", user_id).gte("created_at", start_of_day).execute()
-   return response.count or 0
+    return response.count or 0
 
 
 @app.route("/ask", methods=["POST"])
