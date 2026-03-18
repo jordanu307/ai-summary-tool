@@ -1521,6 +1521,18 @@
         }
     }
 
+    function setUpgradeLoading(isLoading) {
+        const btn = document.getElementById("upgrade-btn");
+        if (!btn) return;
+        if (isLoading) {
+            btn.disabled = true;
+            btn.textContent = "Loading...";
+        } else {
+            btn.disabled = false;
+            btn.textContent = "✨ Upgrade to Pro — $9/month";
+        }
+    }
+
     function applyPlanFeatures() {
         const isPro = currentPlan === "pro";
         const styleSelect = document.getElementById("style-select");
@@ -2119,10 +2131,11 @@
 
     async function startUpgrade() {
         try {
+            setUpgradeLoading(true);
             const { data: { session } } = await sb.auth.getSession();
             if (!session) {
-                showError("Please sign in to upgrade.");
-                return showAuth();
+                showAppError("Please sign in first");
+                return;
             }
 
             const response = await fetch(`${BACKEND_URL}/create-checkout-session`, {
@@ -2133,14 +2146,16 @@
                 }
             });
 
-            const data = await response.json();
-            if (data.url) {
+            const data = await response.json().catch(() => ({}));
+            if (response.ok && data.url) {
                 window.location.href = data.url;
             } else {
                 showAppError(data.error || "Unable to start checkout.");
             }
         } catch (error) {
             showAppError("Unable to start checkout. Please try again.");
+        } finally {
+            setUpgradeLoading(false);
         }
     }
 
