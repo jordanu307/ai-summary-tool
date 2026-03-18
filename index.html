@@ -809,7 +809,7 @@
             display: block;
         }
         #stats-section h3 {
-            font-size: 15px;
+            font-size: 20px;
             margin-bottom: 10px;
         }
         #stats-admin-label {
@@ -822,22 +822,33 @@
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            margin-bottom: 12px;
+            gap: 12px;
+            margin-bottom: 16px;
         }
         .stat-card {
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 10px;
+            border-radius: 12px;
+            padding: 14px;
             background: color-mix(in srgb, var(--card-solid) 88%, transparent);
         }
         .stat-value {
-            font-size: 18px;
+            font-size: 30px;
             font-weight: 800;
+            line-height: 1.1;
         }
         .stat-label {
-            font-size: 11px;
+            margin-top: 4px;
+            font-size: 12px;
             color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .stats-chart-wrap {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px;
+            background: color-mix(in srgb, var(--card-solid) 88%, transparent);
+            height: 180px;
         }
         .tab-nav {
             display: flex;
@@ -1208,14 +1219,16 @@
                     </div>
                     <div class="stat-card">
                         <div class="stat-value" id="stat-today">0</div>
-                        <div class="stat-label">Questions Today</div>
+                        <div class="stat-label">Today</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-value" id="stat-week">0</div>
-                        <div class="stat-label">Questions This Week</div>
+                        <div class="stat-label">This Week</div>
                     </div>
                 </div>
-                <canvas id="stats-chart" height="140"></canvas>
+                <div class="stats-chart-wrap">
+                    <canvas id="stats-chart" height="180"></canvas>
+                </div>
             </div>
         </div>
 
@@ -1620,7 +1633,7 @@
             listSavedChats();
         }
         if (tab === "stats") {
-            loadStats();
+            loadStats({ forceRecreateChart: true });
         }
     }
 
@@ -1732,18 +1745,21 @@
         }
     }
 
-    function getLast7DayLabels() {
-        const labels = [];
+    function getLast7DayMeta() {
+        const days = [];
         const now = new Date();
         for (let i = 6; i >= 0; i -= 1) {
             const d = new Date(now);
             d.setDate(now.getDate() - i);
-            labels.push(d.toISOString().slice(0, 10));
+            days.push({
+                date: d.toISOString().slice(0, 10),
+                label: d.toLocaleDateString("en-US", { weekday: "short" })
+            });
         }
-        return labels;
+        return days;
     }
 
-    async function loadStats() {
+    async function loadStats(options = {}) {
         try {
             const headers = await getAuthHeaders(false);
             if (!headers) return;
@@ -1758,41 +1774,59 @@
             document.getElementById("stat-today").textContent = data.questions_today || 0;
             document.getElementById("stat-week").textContent = data.questions_this_week || 0;
             document.getElementById("stats-section").style.display = "block";
-            renderStatsChart(data.daily_counts || {});
+            renderStatsChart(data.daily_counts || {}, options.forceRecreateChart === true);
         } catch (error) {
             document.getElementById("stats-admin-label").style.display = "none";
             document.getElementById("stat-total").textContent = "0";
             document.getElementById("stat-today").textContent = "0";
             document.getElementById("stat-week").textContent = "0";
-            renderStatsChart({});
+            renderStatsChart({}, options.forceRecreateChart === true);
         }
     }
 
-    function renderStatsChart(dailyCounts) {
-        const chartEl = document.getElementById("stats-chart");
+    function renderStatsChart(dailyCounts, forceRecreate = false) {
+        let chartEl = document.getElementById("stats-chart");
         if (!chartEl || typeof Chart === "undefined") return;
 
-        const labels = getLast7DayLabels();
+        if (forceRecreate) {
+            const freshCanvas = document.createElement("canvas");
+            freshCanvas.id = "stats-chart";
+            freshCanvas.height = 180;
+            chartEl.replaceWith(freshCanvas);
+            chartEl = freshCanvas;
+        }
+
+        const days = getLast7DayMeta();
         const countsByDay = Array.isArray(dailyCounts)
             ? dailyCounts.reduce((acc, item) => {
                 if (item && item.date) acc[item.date] = Number(item.count || 0);
                 return acc;
             }, {})
             : (dailyCounts || {});
-        const values = labels.map((day) => countsByDay[day] || 0);
+        const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+        const byWeekday = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 };
+        days.forEach((day) => {
+            const weekday = new Date(`${day.date}T00:00:00Z`).toLocaleDateString("en-US", {
+                weekday: "short",
+                timeZone: "UTC"
+            });
+            byWeekday[weekday] = countsByDay[day.date] || 0;
+        });
+        const values = weekdays.map((day) => byWeekday[day] || 0);
         const ctx = chartEl.getContext("2d");
         if (statsChart) statsChart.destroy();
         statsChart = new Chart(ctx, {
             type: "bar",
             data: {
-                labels: labels.map((d) => d.slice(5)),
+                labels: weekdays,
                 datasets: [{
                     label: "Questions",
                     data: values,
-                    backgroundColor: "rgba(78, 141, 255, 0.65)",
+                    backgroundColor: "rgba(78, 141, 255, 0.72)",
                     borderColor: "rgba(78, 141, 255, 1)",
                     borderWidth: 1,
-                    borderRadius: 6
+                    borderRadius: 7,
+                    maxBarThickness: 24
                 }]
             },
             options: {
@@ -1800,7 +1834,7 @@
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
-                    y: { beginAtZero: true, ticks: { precision: 0 } },
+                    y: { beginAtZero: true, ticks: { precision: 0, stepSize: 1 } },
                     x: { grid: { display: false } }
                 }
             }

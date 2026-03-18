@@ -443,25 +443,37 @@ def stats():
         return jsonify({"error": "Unauthorized. Please log in."}), 401
     try:
         now = datetime.now(timezone.utc)
-        start_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        start_week = start_today - timedelta(days=6)
+        start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        start_week_dt = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=6)
+        start_week = start_week_dt.isoformat()
 
-        total_query = supabase.table("questions").select("id", count="exact")
-        today_query = supabase.table("questions").select("id", count="exact").gte("created_at", start_today.isoformat())
-        week_query = supabase.table("questions").select("created_at").gte("created_at", start_week.isoformat())
-        if not is_admin:
-            total_query = total_query.eq("user_id", user.id)
-            today_query = today_query.eq("user_id", user.id)
-            week_query = week_query.eq("user_id", user.id)
-
-        total_resp = total_query.execute()
-        today_resp = today_query.execute()
-        week_rows_resp = week_query.execute()
+        if is_admin:
+            total_resp = supabase.table("questions").select("id", count="exact").execute()
+            today_resp = supabase.table("questions").select(
+                "id", count="exact"
+            ).gte("created_at", start_of_today).execute()
+            week_rows_resp = supabase.table("questions").select(
+                "created_at"
+            ).gte("created_at", start_week).execute()
+            print(f"[stats] admin start_of_today={start_of_today}")
+            print(f"[stats] admin questions_today_count={today_resp.count or 0}")
+        else:
+            total_resp = supabase.table("questions").select(
+                "id", count="exact"
+            ).eq("user_id", user.id).execute()
+            today_resp = supabase.table("questions").select(
+                "id", count="exact"
+            ).eq("user_id", user.id).gte("created_at", start_of_today).execute()
+            week_rows_resp = supabase.table("questions").select(
+                "created_at"
+            ).eq("user_id", user.id).gte("created_at", start_week).execute()
+            print(f"[stats] user_id={user.id} start_of_today={start_of_today}")
+            print(f"[stats] user_id={user.id} questions_today_count={today_resp.count or 0}")
 
         week_rows = week_rows_resp.data or []
         daily_counts_map = {}
         for i in range(7):
-            day = (start_week + timedelta(days=i)).date().isoformat()
+            day = (start_week_dt + timedelta(days=i)).date().isoformat()
             daily_counts_map[day] = 0
         for row in week_rows:
             created_at = row.get("created_at")
