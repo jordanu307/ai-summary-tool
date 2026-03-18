@@ -109,12 +109,12 @@ def generate_answer(
             image_url = image_base64.strip()
             if not image_url.startswith("data:image/"):
                 image_url = f"data:image/jpeg;base64,{image_url}"
-            model_to_use = "llava-v1.5-7b-4096-preview"
-            # Vision endpoint receives the latest user turn with image attached.
+            model_to_use = "meta-llama/llama-4-scout-17b-16e-instruct"
+            vision_prompt = f"Answer this question about the image: {topic}"
             messages = [{
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": prompt},
+                    {"type": "text", "text": vision_prompt},
                     {"type": "image_url", "image_url": {"url": image_url}},
                 ],
             }]
