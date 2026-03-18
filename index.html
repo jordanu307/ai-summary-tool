@@ -725,6 +725,13 @@
             font-size: 15px;
             margin-bottom: 10px;
         }
+        #stats-admin-label {
+            display: none;
+            margin-bottom: 10px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 600;
+        }
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -1098,6 +1105,7 @@
         <div id="tab-stats" class="tab-panel">
             <div id="stats-section">
                 <h3>My Stats</h3>
+                <div id="stats-admin-label">Viewing global stats (admin mode)</div>
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-value" id="stat-total">0</div>
@@ -1206,16 +1214,10 @@
         applyPlanFeatures();
         setActiveTab("ask");
         updateChatUi();
-        if (bypassMode) {
-            document.getElementById("history-section").style.display = "none";
-            document.getElementById("stats-section").style.display = "none";
-            document.getElementById("saved-chats-row").style.display = "none";
-        } else {
-            loadHistory({ initialOnly: true });
-            checkSubscriptionStatus({ initialOnly: true });
-            loadStats();
-            listSavedChats({ initialOnly: true });
-        }
+        loadHistory({ initialOnly: true });
+        checkSubscriptionStatus({ initialOnly: true });
+        loadStats();
+        listSavedChats({ initialOnly: true });
     }
 
     function showAuth() {
@@ -1479,18 +1481,14 @@
 
     async function saveCurrentChat() {
         try {
-            if (bypassMode) return showAppError("Save Chat is unavailable in bypass mode.");
             if (!chatMode || chatHistory.length < 2) return showAppError("Need at least 2 messages to save.");
             const name = prompt("Name this conversation:");
             if (!name) return;
-            const { data: { session } } = await sb.auth.getSession();
-            if (!session) return showAuth();
+            const headers = await getAuthHeaders(true);
+            if (!headers) return showAuth();
             const response = await fetch(`${BACKEND_URL}/saved-chats`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${session.access_token}`
-                },
+                headers,
                 body: JSON.stringify({
                     name: name.trim(),
                     messages: chatHistory
@@ -1509,14 +1507,11 @@
         try {
             if (options.initialOnly && initialLoadFlags.savedChats) return;
             if (options.initialOnly) initialLoadFlags.savedChats = true;
-            if (bypassMode) return;
-            const { data: { session } } = await sb.auth.getSession();
-            if (!session) return;
+            const headers = await getAuthHeaders(false);
+            if (!headers) return;
             const response = await fetch(`${BACKEND_URL}/saved-chats`, {
                 method: "GET",
-                headers: {
-                    "Authorization": `Bearer ${session.access_token}`
-                }
+                headers
             });
             if (!response.ok) return;
             const data = await response.json();
@@ -1587,23 +1582,22 @@
 
     async function loadStats() {
         try {
-            if (bypassMode) return;
-            const { data: { session } } = await sb.auth.getSession();
-            if (!session) return;
+            const headers = await getAuthHeaders(false);
+            if (!headers) return;
             const response = await fetch(`${BACKEND_URL}/stats`, {
                 method: "GET",
-                headers: {
-                    "Authorization": `Bearer ${session.access_token}`
-                }
+                headers
             });
             if (!response.ok) return;
             const data = await response.json();
+            document.getElementById("stats-admin-label").style.display = (bypassMode || data.admin_mode) ? "block" : "none";
             document.getElementById("stat-total").textContent = data.total_questions || 0;
             document.getElementById("stat-today").textContent = data.questions_today || 0;
             document.getElementById("stat-week").textContent = data.questions_this_week || 0;
             document.getElementById("stats-section").style.display = "block";
             renderStatsChart(data.daily_counts || {});
         } catch (error) {
+            document.getElementById("stats-admin-label").style.display = "none";
             document.getElementById("stat-total").textContent = "0";
             document.getElementById("stat-today").textContent = "0";
             document.getElementById("stat-week").textContent = "0";
@@ -1654,29 +1648,16 @@
         try {
             if (options.initialOnly && initialLoadFlags.subscription) return;
             if (options.initialOnly) initialLoadFlags.subscription = true;
-            if (bypassMode) {
-                const badge = document.getElementById("subscription-badge");
-                const upgradeBtn = document.getElementById("upgrade-btn");
-                badge.innerText = "Pro";
-                badge.classList.remove("free");
-                badge.classList.add("pro");
-                upgradeBtn.style.display = "none";
-                currentPlan = "pro";
-                applyPlanFeatures();
-                return;
-            }
-            const { data: { session } } = await sb.auth.getSession();
-            if (!session) return;
+            const headers = await getAuthHeaders(false);
+            if (!headers) return;
 
             const response = await fetch(`${BACKEND_URL}/subscription-status`, {
                 method: "GET",
-                headers: {
-                    "Authorization": `Bearer ${session.access_token}`
-                }
+                headers
             });
 
             if (!response.ok) {
-                currentPlan = "free";
+                currentPlan = bypassMode ? "pro" : "free";
                 applyPlanFeatures();
                 return;
             }
@@ -1700,7 +1681,7 @@
             }
             applyPlanFeatures();
         } catch (error) {
-            currentPlan = "free";
+            currentPlan = bypassMode ? "pro" : "free";
             applyPlanFeatures();
         }
     }
@@ -1986,18 +1967,12 @@
         try {
             if (options.initialOnly && initialLoadFlags.history) return;
             if (options.initialOnly) initialLoadFlags.history = true;
-            if (bypassMode) {
-                document.getElementById("history-section").style.display = "none";
-                return;
-            }
-            const { data: { session } } = await sb.auth.getSession();
-            if (!session) return;
+            const headers = await getAuthHeaders(false);
+            if (!headers) return;
 
             const response = await fetch(`${BACKEND_URL}/history`, {
                 method: "GET",
-                headers: {
-                    "Authorization": `Bearer ${session.access_token}`
-                }
+                headers
             });
 
             if (!response.ok) {
@@ -2031,6 +2006,19 @@
         } catch (error) {
             // fail silently for history loading
         }
+    }
+
+    async function getAuthHeaders(includeJson = false) {
+        const headers = {};
+        if (includeJson) headers["Content-Type"] = "application/json";
+        if (bypassMode) {
+            headers["X-Admin-Key"] = BYPASS_CODE;
+            return headers;
+        }
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session) return null;
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+        return headers;
     }
 </script>
 </body>

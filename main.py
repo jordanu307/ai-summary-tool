@@ -150,6 +150,17 @@ def get_current_user(request):
         return None
 
 
+def is_admin_request(request):
+    return request.headers.get("X-Admin-Key", "") == ADMIN_BYPASS_KEY
+
+
+def get_user_or_admin(request):
+    if is_admin_request(request):
+        return None, True
+    user = get_current_user(request)
+    return user, False
+
+
 def is_pro_user(user_id):
     try:
         response = supabase.table("subscriptions").select("status").eq(
@@ -276,21 +287,24 @@ def ask_admin():
 
 @app.route("/subscription-status", methods=["GET"])
 def subscription_status():
-    user = get_current_user(request)
-    if not user:
+    user, is_admin = get_user_or_admin(request)
+    if not is_admin and not user:
         return jsonify({"error": "Unauthorized. Please log in."}), 401
+    if is_admin:
+        return jsonify({"status": "pro", "admin_mode": True})
     return jsonify({"status": "pro" if is_pro_user(user.id) else "free"})
 
 
 @app.route("/saved-chats", methods=["GET"])
 def list_saved_chats():
-    user = get_current_user(request)
-    if not user:
+    user, is_admin = get_user_or_admin(request)
+    if not is_admin and not user:
         return jsonify({"error": "Unauthorized. Please log in."}), 401
     try:
-        response = supabase.table("saved_chats").select(
-            "id,name,messages,created_at"
-        ).eq("user_id", user.id).order("created_at", desc=True).limit(50).execute()
+        query = supabase.table("saved_chats").select("id,name,messages,created_at,user_id")
+        if not is_admin:
+            query = query.eq("user_id", user.id)
+        response = query.order("created_at", desc=True).limit(50).execute()
         return jsonify({"items": response.data or []})
     except Exception as e:
         print(f"Saved chats list error: {e}")
@@ -299,9 +313,11 @@ def list_saved_chats():
 
 @app.route("/saved-chats", methods=["POST"])
 def save_chat():
-    user = get_current_user(request)
-    if not user:
+    user, is_admin = get_user_or_admin(request)
+    if not is_admin and not user:
         return jsonify({"error": "Unauthorized. Please log in."}), 401
+    if is_admin:
+        return jsonify({"error": "Saving chats is unavailable in admin mode."}), 403
     data = request.json or {}
     name = (data.get("name") or "").strip()
     messages = data.get("messages")
@@ -324,11 +340,14 @@ def save_chat():
 
 @app.route("/saved-chats/<chat_id>", methods=["DELETE"])
 def delete_saved_chat(chat_id):
-    user = get_current_user(request)
-    if not user:
+    user, is_admin = get_user_or_admin(request)
+    if not is_admin and not user:
         return jsonify({"error": "Unauthorized. Please log in."}), 401
     try:
-        supabase.table("saved_chats").delete().eq("id", chat_id).eq("user_id", user.id).execute()
+        query = supabase.table("saved_chats").delete().eq("id", chat_id)
+        if not is_admin:
+            query = query.eq("user_id", user.id)
+        query.execute()
         return jsonify({"ok": True})
     except Exception as e:
         print(f"Delete chat error: {e}")
@@ -419,23 +438,25 @@ def get_shared_answer_data(slug):
 
 @app.route("/stats", methods=["GET"])
 def stats():
-    user = get_current_user(request)
-    if not user:
+    user, is_admin = get_user_or_admin(request)
+    if not is_admin and not user:
         return jsonify({"error": "Unauthorized. Please log in."}), 401
     try:
         now = datetime.now(timezone.utc)
         start_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
         start_week = start_today - timedelta(days=6)
 
-        total_resp = supabase.table("questions").select(
-            "id", count="exact"
-        ).eq("user_id", user.id).execute()
-        today_resp = supabase.table("questions").select(
-            "id", count="exact"
-        ).eq("user_id", user.id).gte("created_at", start_today.isoformat()).execute()
-        week_rows_resp = supabase.table("questions").select(
-            "created_at"
-        ).eq("user_id", user.id).gte("created_at", start_week.isoformat()).execute()
+        total_query = supabase.table("questions").select("id", count="exact")
+        today_query = supabase.table("questions").select("id", count="exact").gte("created_at", start_today.isoformat())
+        week_query = supabase.table("questions").select("created_at").gte("created_at", start_week.isoformat())
+        if not is_admin:
+            total_query = total_query.eq("user_id", user.id)
+            today_query = today_query.eq("user_id", user.id)
+            week_query = week_query.eq("user_id", user.id)
+
+        total_resp = total_query.execute()
+        today_resp = today_query.execute()
+        week_rows_resp = week_query.execute()
 
         week_rows = week_rows_resp.data or []
         daily_counts_map = {}
@@ -457,6 +478,7 @@ def stats():
             "questions_this_week": sum(item["count"] for item in daily_counts),
             "daily_counts": daily_counts,
             "daily_counts_map": daily_counts_map,
+            "admin_mode": is_admin,
         })
     except Exception as e:
         print(f"Stats error: {e}")
@@ -530,14 +552,15 @@ def stripe_webhook():
 
 @app.route("/history", methods=["GET"])
 def history():
-    user = get_current_user(request)
-    if not user:
+    user, is_admin = get_user_or_admin(request)
+    if not is_admin and not user:
         return jsonify({"error": "Unauthorized. Please log in."}), 401
 
     try:
-        response = supabase.table("questions").select("question,answer,created_at").eq(
-            "user_id", user.id
-        ).order("created_at", desc=True).limit(5).execute()
+        query = supabase.table("questions").select("question,answer,created_at,user_id")
+        if not is_admin:
+            query = query.eq("user_id", user.id)
+        response = query.order("created_at", desc=True).limit(10 if is_admin else 5).execute()
         items = response.data or []
         return jsonify({"items": items})
     except Exception as e:
