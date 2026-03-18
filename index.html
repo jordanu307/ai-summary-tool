@@ -347,6 +347,93 @@
             color: var(--success-text);
             border-color: rgba(98, 223, 155, 0.25);
         }
+        .master-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 40;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 22px;
+            background: rgba(6, 10, 18, 0.72);
+            backdrop-filter: blur(12px);
+            opacity: 0;
+        }
+        .master-overlay.show {
+            display: flex;
+            animation: masterOverlayIn 280ms ease forwards;
+        }
+        .master-card {
+            width: min(760px, 100%);
+            border-radius: 18px;
+            border: 1px solid var(--border);
+            background: linear-gradient(170deg, color-mix(in srgb, var(--card-solid) 92%, transparent), color-mix(in srgb, var(--result) 92%, transparent));
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+            padding: 24px;
+            transform: translateY(14px);
+            opacity: 0;
+        }
+        .master-overlay.show .master-card {
+            animation: masterCardIn 320ms cubic-bezier(.17,.67,.35,1) forwards;
+        }
+        .master-title {
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 6px;
+            letter-spacing: -0.02em;
+        }
+        .master-subtitle {
+            color: var(--muted);
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+        .master-options {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        .master-option {
+            border: 1px solid var(--border);
+            background: color-mix(in srgb, var(--card-solid) 85%, transparent);
+            border-radius: 14px;
+            padding: 14px;
+            cursor: pointer;
+            text-align: left;
+            transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease, background 220ms ease;
+        }
+        .master-option:hover {
+            transform: translateY(-2px);
+            border-color: #78a9ff;
+            box-shadow: 0 10px 30px rgba(74, 133, 255, 0.22);
+            background: color-mix(in srgb, var(--result) 86%, transparent);
+        }
+        .master-option-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: var(--text);
+        }
+        .master-option-desc {
+            font-size: 13px;
+            color: var(--muted);
+        }
+        .master-cancel {
+            margin-top: 14px;
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text);
+            font-size: 14px;
+            font-weight: 600;
+            padding: 11px 14px;
+            cursor: pointer;
+            transition: all 220ms ease;
+        }
+        .master-cancel:hover {
+            border-color: #7ea8ff;
+            background: rgba(88, 132, 222, 0.12);
+        }
 
         #app-section { display: none; }
 
@@ -784,6 +871,14 @@
             from { opacity: 0; transform: translateY(4px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        @keyframes masterOverlayIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes masterCardIn {
+            from { opacity: 0; transform: translateY(14px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
 
         #history-list {
             position: relative;
@@ -1134,11 +1229,35 @@
     </div>
 </div>
 
+<div id="master-access-overlay" class="master-overlay" role="dialog" aria-modal="true" aria-label="Select Access Mode">
+    <div class="master-card">
+        <div class="master-title">Select Access Mode</div>
+        <div class="master-subtitle">Choose how you want to enter AI Summary Tool.</div>
+        <div class="master-options">
+            <button class="master-option" onclick="selectMasterMode('admin-bypass')">
+                <div class="master-option-title">🚀 Admin Bypass (Pro)</div>
+                <div class="master-option-desc">Enter as local admin with Pro features and bypass auth.</div>
+            </button>
+            <button class="master-option" onclick="selectMasterMode('normal-view')">
+                <div class="master-option-title">👤 Normal User View</div>
+                <div class="master-option-desc">Open the app in free-user preview mode to see the default experience.</div>
+            </button>
+            <button class="master-option" onclick="selectMasterMode('admin-dashboard')">
+                <div class="master-option-title">⚙️ Admin Dashboard</div>
+                <div class="master-option-desc">Go directly to the admin dashboard.</div>
+            </button>
+        </div>
+        <button class="master-cancel" onclick="hideMasterAccessSelector()">Cancel</button>
+    </div>
+</div>
+
 <script>
     const SUPABASE_URL = "https://lbxfotqoezbekppmafab.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxieGZvdHFvZXpiZWtwcG1hZmFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5MzM0ODAsImV4cCI6MjA4ODUwOTQ4MH0.a6g9IyD9NCFHUnDAHyJLUfXjLxYBnqE3k7AI7Y8apMI";
     const BACKEND_URL = "https://ai-summary-tool-5j6g.onrender.com";
     const BYPASS_CODE = "2026JU";
+    const MASTER_ACCESS_CODE = "AKEJ8303";
+    const ADMIN_AUTO_PASSWORD = "admin123";
 
     const { createClient } = supabase;
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -1149,6 +1268,7 @@
     let currentPlan = "free";
     let selectedImageBase64 = null;
     let bypassMode = false;
+    let normalViewMode = false;
     let chatMode = false;
     let chatHistory = [];
     let statsChart = null;
@@ -1207,6 +1327,7 @@
     });
 
     function showApp(email) {
+        hideMasterAccessSelector();
         document.getElementById("auth-section").style.display = "none";
         document.getElementById("app-section").style.display = "block";
         document.getElementById("landing-header").style.display = "none";
@@ -1230,19 +1351,61 @@
         document.getElementById("app-section").style.display = "none";
         document.getElementById("landing-header").style.display = "block";
         clearImage();
+        normalViewMode = false;
+        hideMasterAccessSelector();
         showLogin();
     }
 
     function enterWithCode(source) {
         const inputId = source === "signup" ? "signup-access-code" : "login-access-code";
         const code = (document.getElementById(inputId).value || "").trim();
+        if (code === MASTER_ACCESS_CODE) {
+            return showMasterAccessSelector();
+        }
         if (code !== BYPASS_CODE) {
             return showError("Invalid access code.");
         }
+        startAdminBypassMode();
+    }
+
+    function startAdminBypassMode() {
         bypassMode = true;
+        normalViewMode = false;
         currentPlan = "pro";
         showSuccess("Bypass mode enabled.");
         showApp("admin@local");
+    }
+
+    function showMasterAccessSelector() {
+        clearMessages();
+        const overlay = document.getElementById("master-access-overlay");
+        overlay.classList.add("show");
+    }
+
+    function hideMasterAccessSelector() {
+        const overlay = document.getElementById("master-access-overlay");
+        overlay.classList.remove("show");
+    }
+
+    function selectMasterMode(mode) {
+        hideMasterAccessSelector();
+        if (mode === "admin-bypass") {
+            startAdminBypassMode();
+            return;
+        }
+        if (mode === "normal-view") {
+            bypassMode = false;
+            normalViewMode = true;
+            currentPlan = "free";
+            showSuccess("Normal user view enabled.");
+            showApp("viewer@local");
+            return;
+        }
+        if (mode === "admin-dashboard") {
+            localStorage.setItem("admin_autologin", "1");
+            localStorage.setItem("admin_autopassword", ADMIN_AUTO_PASSWORD);
+            window.location.href = "admin.html?from=master";
+        }
     }
 
     function showSignup() {
@@ -1768,8 +1931,9 @@
 
     async function signOut() {
         try {
-            if (bypassMode) {
+            if (bypassMode || normalViewMode) {
                 bypassMode = false;
+                normalViewMode = false;
                 currentPlan = "free";
                 clearImage();
                 clearChat();
@@ -1798,6 +1962,7 @@
             const style = document.getElementById("style-select").value;
             const customInstructions = (localStorage.getItem("custom_instructions") || "").trim();
             if (!topic) return showAppError("Please enter a topic first.");
+            if (normalViewMode) return showAppError("Normal User View is preview-only. Sign in to ask questions.");
             if (currentPlan !== "pro" && (style === "bullets" || style === "detailed")) {
                 upgradePrompt.style.display = "block";
                 return showAppError("Upgrade to Pro to use Bullets and Detailed styles.");
@@ -2015,6 +2180,7 @@
             headers["X-Admin-Key"] = BYPASS_CODE;
             return headers;
         }
+        if (normalViewMode) return null;
         const { data: { session } } = await sb.auth.getSession();
         if (!session) return null;
         headers["Authorization"] = `Bearer ${session.access_token}`;

@@ -76,6 +76,8 @@
 
 <script>
     const API_BASE = "https://ai-summary-tool-5j6g.onrender.com";
+    const MASTER_AUTOFILL_KEY = "admin_autologin";
+    const MASTER_AUTOPASS_KEY = "admin_autopassword";
 
     async function loadAdmin() {
         const password = document.getElementById("admin-password").value;
@@ -130,6 +132,22 @@
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
     }
+
+    window.addEventListener("load", async () => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const fromMaster = params.get("from") === "master";
+            const shouldAuto = localStorage.getItem(MASTER_AUTOFILL_KEY) === "1";
+            const savedPassword = localStorage.getItem(MASTER_AUTOPASS_KEY) || "";
+            if (!fromMaster || !shouldAuto || !savedPassword) return;
+            document.getElementById("admin-password").value = savedPassword;
+            localStorage.removeItem(MASTER_AUTOFILL_KEY);
+            localStorage.removeItem(MASTER_AUTOPASS_KEY);
+            await loadAdmin();
+        } catch (error) {
+            // keep manual login as fallback
+        }
+    });
 </script>
 </body>
 </html>
