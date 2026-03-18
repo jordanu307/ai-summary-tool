@@ -14,12 +14,13 @@ import stripe
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 limiter = Limiter(
     get_remote_address,
     app=app,
-    default_limits=["10 per minute"]
+    default_limits=["10 per minute"],
+    default_limits_exempt_when=lambda: request.method == "OPTIONS"
 )
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
@@ -39,6 +40,14 @@ stripe.api_key = STRIPE_SECRET_KEY
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok"})
+
+
+@app.after_request
+def apply_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-Admin-Key"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    return response
 
 MODEL_MAP = {
     "groq": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
@@ -313,6 +322,19 @@ def save_chat():
         return jsonify({"error": "Failed to save chat."}), 500
 
 
+@app.route("/saved-chats/<chat_id>", methods=["DELETE"])
+def delete_saved_chat(chat_id):
+    user = get_current_user(request)
+    if not user:
+        return jsonify({"error": "Unauthorized. Please log in."}), 401
+    try:
+        supabase.table("saved_chats").delete().eq("id", chat_id).eq("user_id", user.id).execute()
+        return jsonify({"ok": True})
+    except Exception as e:
+        print(f"Delete chat error: {e}")
+        return jsonify({"error": "Failed to delete chat."}), 500
+
+
 @app.route("/share", methods=["POST"])
 def share_answer():
     user = get_current_user(request)
@@ -416,23 +438,25 @@ def stats():
         ).eq("user_id", user.id).gte("created_at", start_week.isoformat()).execute()
 
         week_rows = week_rows_resp.data or []
-        daily_counts = {}
+        daily_counts_map = {}
         for i in range(7):
             day = (start_week + timedelta(days=i)).date().isoformat()
-            daily_counts[day] = 0
+            daily_counts_map[day] = 0
         for row in week_rows:
             created_at = row.get("created_at")
             if not created_at:
                 continue
             day_key = created_at[:10]
-            if day_key in daily_counts:
-                daily_counts[day_key] += 1
+            if day_key in daily_counts_map:
+                daily_counts_map[day_key] += 1
+        daily_counts = [{"date": day, "count": count} for day, count in daily_counts_map.items()]
 
         return jsonify({
             "total_questions": total_resp.count or 0,
             "questions_today": today_resp.count or 0,
-            "questions_this_week": sum(daily_counts.values()),
+            "questions_this_week": sum(item["count"] for item in daily_counts),
             "daily_counts": daily_counts,
+            "daily_counts_map": daily_counts_map,
         })
     except Exception as e:
         print(f"Stats error: {e}")

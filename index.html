@@ -33,6 +33,7 @@
             --link: #cce0ff;
             --timeline-dot: #8faefb;
             --bg-grid: rgba(161, 183, 227, 0.08);
+            --input-text: #ffffff;
             --hover-t: 260ms cubic-bezier(.22,.61,.36,1);
         }
 
@@ -58,6 +59,7 @@
             --link: #2253b9;
             --timeline-dot: #5f88ed;
             --bg-grid: rgba(74, 113, 182, 0.12);
+            --input-text: #1f2937;
         }
 
         body {
@@ -173,13 +175,13 @@
             color: var(--muted);
         }
 
-        input[type="email"], input[type="password"], input[type="text"], select {
+        input[type="email"], input[type="password"], input[type="text"], select, textarea {
             width: 100%;
             border: 1px solid var(--border);
             border-radius: 12px;
             background: var(--input-bg);
-            color: var(--text);
-            -webkit-text-fill-color: var(--text);
+            color: var(--input-text);
+            -webkit-text-fill-color: var(--input-text);
             font-size: 17px;
             padding: 14px 16px;
             outline: none;
@@ -637,14 +639,8 @@
             margin-bottom: 8px;
         }
         #custom-instructions {
-            width: 100%;
             min-height: 72px;
             resize: vertical;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            background: var(--input-bg);
-            color: var(--text);
-            padding: 10px;
             font-family: inherit;
             font-size: 13px;
         }
@@ -1149,6 +1145,11 @@
     let chatHistory = [];
     let statsChart = null;
     let activeTab = "ask";
+    let initialLoadFlags = {
+        history: false,
+        subscription: false,
+        savedChats: false
+    };
 
     window.addEventListener("load", async () => {
         try {
@@ -1210,14 +1211,19 @@
             document.getElementById("stats-section").style.display = "none";
             document.getElementById("saved-chats-row").style.display = "none";
         } else {
-            loadHistory();
-            checkSubscriptionStatus();
+            loadHistory({ initialOnly: true });
+            checkSubscriptionStatus({ initialOnly: true });
             loadStats();
-            listSavedChats();
+            listSavedChats({ initialOnly: true });
         }
     }
 
     function showAuth() {
+        initialLoadFlags = {
+            history: false,
+            subscription: false,
+            savedChats: false
+        };
         document.getElementById("auth-section").style.display = "block";
         document.getElementById("app-section").style.display = "none";
         document.getElementById("landing-header").style.display = "block";
@@ -1499,8 +1505,10 @@
         }
     }
 
-    async function listSavedChats() {
+    async function listSavedChats(options = {}) {
         try {
+            if (options.initialOnly && initialLoadFlags.savedChats) return;
+            if (options.initialOnly) initialLoadFlags.savedChats = true;
             if (bypassMode) return;
             const { data: { session } } = await sb.auth.getSession();
             if (!session) return;
@@ -1608,7 +1616,13 @@
         if (!chartEl || typeof Chart === "undefined") return;
 
         const labels = getLast7DayLabels();
-        const values = labels.map((day) => dailyCounts[day] || 0);
+        const countsByDay = Array.isArray(dailyCounts)
+            ? dailyCounts.reduce((acc, item) => {
+                if (item && item.date) acc[item.date] = Number(item.count || 0);
+                return acc;
+            }, {})
+            : (dailyCounts || {});
+        const values = labels.map((day) => countsByDay[day] || 0);
         const ctx = chartEl.getContext("2d");
         if (statsChart) statsChart.destroy();
         statsChart = new Chart(ctx, {
@@ -1636,8 +1650,10 @@
         });
     }
 
-    async function checkSubscriptionStatus() {
+    async function checkSubscriptionStatus(options = {}) {
         try {
+            if (options.initialOnly && initialLoadFlags.subscription) return;
+            if (options.initialOnly) initialLoadFlags.subscription = true;
             if (bypassMode) {
                 const badge = document.getElementById("subscription-badge");
                 const upgradeBtn = document.getElementById("upgrade-btn");
@@ -1966,8 +1982,10 @@
         }
     }
 
-    async function loadHistory() {
+    async function loadHistory(options = {}) {
         try {
+            if (options.initialOnly && initialLoadFlags.history) return;
+            if (options.initialOnly) initialLoadFlags.history = true;
             if (bypassMode) {
                 document.getElementById("history-section").style.display = "none";
                 return;
