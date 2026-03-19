@@ -163,6 +163,46 @@
             margin-bottom: 18px;
             letter-spacing: -0.02em;
         }
+        #auth-section label {
+            color: #c7d5f2;
+        }
+        #auth-section input[type="email"],
+        #auth-section input[type="password"],
+        #auth-section input[type="text"] {
+            background: #1e2433;
+            color: #ffffff;
+            -webkit-text-fill-color: #ffffff;
+            border: 1px solid #3a4761;
+        }
+        #auth-section input::placeholder {
+            color: #9fb0d4;
+        }
+        #auth-section .btn,
+        #auth-section .access-code-btn {
+            color: #ffffff;
+            border: none;
+            background: linear-gradient(135deg, #3f76ff 0%, #44b0ff 100%);
+            box-shadow: 0 10px 24px rgba(52, 108, 255, 0.35);
+        }
+        #auth-section .btn:hover,
+        #auth-section .access-code-btn:hover {
+            filter: brightness(1.08);
+            transform: translateY(-1px);
+        }
+        body.light #auth-section label {
+            color: #3f537c;
+        }
+        body.light #auth-section input[type="email"],
+        body.light #auth-section input[type="password"],
+        body.light #auth-section input[type="text"] {
+            background: #ffffff;
+            color: #1f2937;
+            -webkit-text-fill-color: #1f2937;
+            border: 1px solid #c5d4ef;
+        }
+        body.light #auth-section input::placeholder {
+            color: #6b7ea7;
+        }
 
         .form-group { margin-bottom: 14px; }
 
@@ -304,16 +344,15 @@
             padding: 9px 12px;
             font-size: 12px;
             font-weight: 600;
-            background: transparent;
-            color: var(--muted);
-            border: 1px solid var(--border);
+            background: linear-gradient(135deg, #3f76ff 0%, #44b0ff 100%);
+            color: #fff;
+            border: none;
             border-radius: 10px;
             cursor: pointer;
         }
         .access-code-btn:hover {
-            color: var(--text);
-            border-color: #79a7ff;
-            background: rgba(101, 149, 255, 0.08);
+            color: #fff;
+            background: linear-gradient(135deg, #4b7fff 0%, #4eb6ff 100%);
         }
 
         .toggle-text a {

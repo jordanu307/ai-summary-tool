@@ -1,83 +1,235 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AI Summary Tool Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0a0f19;
+            --panel: rgba(17, 25, 40, 0.88);
+            --card: #121c30;
+            --text: #edf3ff;
+            --muted: #9eb1d4;
+            --border: #2a3b60;
+            --input: #1e2433;
+            --accent: #4f7cff;
+            --accent2: #2ec9ff;
+            --danger: #ff8d8d;
+            --shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+        }
         body {
-            font-family: 'Georgia', serif;
-            background: #f5f5f0;
-            color: #111;
-            padding: 30px;
+            font-family: "Inter", sans-serif;
+            min-height: 100vh;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 12% 10%, #152745 0%, transparent 34%),
+                radial-gradient(circle at 86% 88%, #173768 0%, transparent 35%),
+                var(--bg);
+            padding: 18px;
         }
         .container {
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
-            background: white;
+            border-radius: 18px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            padding: 22px;
+        }
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        h1 {
+            font-size: 30px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+        .subtitle {
+            font-size: 13px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        input[type="password"],
+        input[type="text"] {
+            background: var(--input);
+            color: #fff;
+            border: 1px solid #3a4761;
             border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-        }
-        h1 { font-size: 24px; margin-bottom: 16px; }
-        .row { display: flex; gap: 10px; margin-bottom: 16px; }
-        input[type="password"] {
-            flex: 1;
-            padding: 10px 12px;
-            border: 1px solid #ddd;
-            border-radius: 7px;
+            padding: 11px 13px;
             font-size: 14px;
+            outline: none;
         }
+        #admin-password { min-width: 220px; flex: 1; }
+        #search-box { min-width: 260px; flex: 1; }
+        input::placeholder { color: #9eb1d4; }
         button {
-            padding: 10px 14px;
             border: none;
-            background: #111;
-            color: white;
-            border-radius: 7px;
-            cursor: pointer;
+            border-radius: 12px;
+            padding: 11px 14px;
             font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            cursor: pointer;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            box-shadow: 0 10px 22px rgba(70, 120, 255, 0.32);
+            transition: transform 180ms ease, filter 180ms ease;
         }
-        button:disabled { background: #999; cursor: not-allowed; }
-        .error { color: #c00; margin-bottom: 10px; display: none; }
+        button:hover { transform: translateY(-1px); filter: brightness(1.06); }
+        button:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
+        #refresh-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            box-shadow: none;
+        }
+        .error {
+            display: none;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255, 115, 115, 0.36);
+            background: rgba(255, 115, 115, 0.12);
+            color: var(--danger);
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 13px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .stat-card {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--card);
+            padding: 14px;
+        }
+        .stat-value {
+            font-size: 30px;
+            font-weight: 800;
+            line-height: 1.1;
+        }
+        .stat-label {
+            margin-top: 4px;
+            font-size: 12px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .table-wrap {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: auto;
+            max-height: 68vh;
+            background: var(--card);
+        }
         table {
             width: 100%;
             border-collapse: collapse;
+            min-width: 840px;
             font-size: 13px;
         }
         th, td {
             text-align: left;
-            border-bottom: 1px solid #eee;
-            padding: 8px 6px;
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(138, 165, 213, 0.17);
             vertical-align: top;
         }
-        th { color: #555; }
-        .muted { color: #888; }
+        th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #16233f;
+            color: #c7d9ff;
+            font-size: 12px;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+        td.question { min-width: 220px; font-weight: 600; color: #e7efff; }
+        td.answer { min-width: 300px; color: #dce8ff; }
+        td.email, td.time { color: var(--muted); white-space: nowrap; }
+        .empty {
+            padding: 14px;
+            color: var(--muted);
+            font-size: 13px;
+            display: none;
+        }
+        @media (max-width: 780px) {
+            .container { padding: 16px; }
+            .topbar { flex-direction: column; align-items: flex-start; }
+            .controls { flex-direction: column; align-items: stretch; }
+            #admin-password, #search-box { min-width: 0; width: 100%; }
+            .stats-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>Admin Dashboard</h1>
-    <div class="row">
-        <input type="password" id="admin-password" placeholder="Admin password" />
-        <button id="load-btn" onclick="loadAdmin()">Load</button>
+    <div class="topbar">
+        <div>
+            <h1>Admin Dashboard</h1>
+            <div class="subtitle">All recent questions across all users</div>
+        </div>
     </div>
+
+    <div class="controls">
+        <input type="password" id="admin-password" placeholder="Admin password" />
+        <button id="load-btn" onclick="loadAdmin()">Load Data</button>
+        <button id="refresh-btn" onclick="refreshAdmin()">Refresh</button>
+        <input type="text" id="search-box" placeholder="Search question, answer, email, timestamp" oninput="applyFilter()" />
+    </div>
+
     <div id="error" class="error"></div>
-    <table id="admin-table" style="display:none;">
-        <thead>
-            <tr>
-                <th>Question</th>
-                <th>Answer</th>
-                <th>User Email</th>
-                <th>Timestamp</th>
-            </tr>
-        </thead>
-        <tbody id="admin-tbody"></tbody>
-    </table>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value" id="stat-users">0</div>
+            <div class="stat-label">Total Users</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="stat-questions">0</div>
+            <div class="stat-label">Total Questions</div>
+        </div>
+    </div>
+
+    <div class="table-wrap" id="admin-table-wrap" style="display:none;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Question</th>
+                    <th>Answer</th>
+                    <th>User Email</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody id="admin-tbody"></tbody>
+        </table>
+    </div>
+    <div id="empty-state" class="empty">No matching records.</div>
 </div>
 
 <script>
     const API_BASE = "https://ai-summary-tool-5j6g.onrender.com";
     const MASTER_AUTOFILL_KEY = "admin_autologin";
     const MASTER_AUTOPASS_KEY = "admin_autopassword";
+
+    let allItems = [];
+    let refreshTimer = null;
 
     async function loadAdmin() {
         const password = document.getElementById("admin-password").value;
@@ -93,43 +245,89 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ password })
             });
-            const data = await response.json();
+            const data = await response.json().catch(() => ({}));
             if (!response.ok) {
                 throw new Error(data.error || "Unauthorized.");
             }
-            renderTable(data.items || []);
+            allItems = data.items || [];
+            renderStats(allItems);
+            applyFilter();
+            startRealtimeRefresh();
         } catch (e) {
             error.innerText = e.message || "Failed to load.";
             error.style.display = "block";
         } finally {
             btn.disabled = false;
-            btn.innerText = "Load";
+            btn.innerText = "Load Data";
         }
     }
 
+    async function refreshAdmin() {
+        if (!document.getElementById("admin-password").value) {
+            return;
+        }
+        await loadAdmin();
+    }
+
+    function startRealtimeRefresh() {
+        if (refreshTimer) clearInterval(refreshTimer);
+        refreshTimer = setInterval(() => {
+            refreshAdmin();
+        }, 15000);
+    }
+
+    function renderStats(items) {
+        const questionCount = items.length;
+        const uniqueUsers = new Set(
+            items.map((item) => item.email || item.user_id || "unknown").filter(Boolean)
+        ).size;
+        document.getElementById("stat-users").textContent = uniqueUsers;
+        document.getElementById("stat-questions").textContent = questionCount;
+    }
+
+    function applyFilter() {
+        const query = (document.getElementById("search-box").value || "").trim().toLowerCase();
+        const filtered = !query
+            ? allItems
+            : allItems.filter((item) => {
+                const blob = [
+                    item.question || "",
+                    item.answer || "",
+                    item.email || "",
+                    item.created_at || ""
+                ].join(" ").toLowerCase();
+                return blob.includes(query);
+            });
+        renderTable(filtered);
+    }
+
     function renderTable(items) {
-        const table = document.getElementById("admin-table");
+        const wrap = document.getElementById("admin-table-wrap");
         const tbody = document.getElementById("admin-tbody");
+        const empty = document.getElementById("empty-state");
+
         tbody.innerHTML = "";
         items.forEach((item) => {
             const tr = document.createElement("tr");
             tr.innerHTML = `
-                <td>${escapeHtml(item.question || "")}</td>
-                <td>${escapeHtml(item.answer || "")}</td>
-                <td class="muted">${escapeHtml(item.email || "")}</td>
-                <td class="muted">${escapeHtml(item.created_at || "")}</td>
+                <td class="question">${escapeHtml(item.question || "")}</td>
+                <td class="answer">${escapeHtml(item.answer || "")}</td>
+                <td class="email">${escapeHtml(item.email || "—")}</td>
+                <td class="time">${escapeHtml(item.created_at || "")}</td>
             `;
             tbody.appendChild(tr);
         });
-        table.style.display = "table";
+
+        wrap.style.display = items.length ? "block" : "none";
+        empty.style.display = items.length ? "none" : "block";
     }
 
     function escapeHtml(text) {
-        return text
+        return String(text)
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
+            .replace(/\"/g, "&quot;")
             .replace(/'/g, "&#039;");
     }
 
@@ -145,7 +343,7 @@
             localStorage.removeItem(MASTER_AUTOPASS_KEY);
             await loadAdmin();
         } catch (error) {
-            // keep manual login as fallback
+            // keep manual load flow as fallback
         }
     });
 </script>
