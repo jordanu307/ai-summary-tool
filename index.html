@@ -21,8 +21,8 @@
             --border: #2a3b60;
             --border-soft: #1f2c47;
             --shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
-            --result: #121c30;
-            --input-bg: #0e1729;
+            --result: #16243c;
+            --input-bg: #1a2035;
             --error-bg: rgba(255, 87, 87, 0.14);
             --error-text: #ffabab;
             --success-bg: rgba(46, 204, 113, 0.15);
@@ -34,6 +34,11 @@
             --timeline-dot: #8faefb;
             --bg-grid: rgba(161, 183, 227, 0.08);
             --input-text: #ffffff;
+            --input-border: #334155;
+            --ghost-btn-bg: #1b263d;
+            --ghost-btn-text: #ffffff;
+            --tab-bg: #1a2740;
+            --tab-text: #dbeafe;
             --hover-t: 260ms cubic-bezier(.22,.61,.36,1);
         }
 
@@ -47,8 +52,8 @@
             --border: #c4d3ee;
             --border-soft: #d4e1f7;
             --shadow: 0 20px 50px rgba(48, 85, 145, 0.18);
-            --result: #f3f7ff;
-            --input-bg: #f9fbff;
+            --result: #f8fafc;
+            --input-bg: #ffffff;
             --error-bg: rgba(224, 63, 63, 0.12);
             --error-text: #b52929;
             --success-bg: rgba(17, 168, 86, 0.13);
@@ -59,7 +64,12 @@
             --link: #2253b9;
             --timeline-dot: #5f88ed;
             --bg-grid: rgba(74, 113, 182, 0.12);
-            --input-text: #1f2937;
+            --input-text: #111111;
+            --input-border: #cbd5e1;
+            --ghost-btn-bg: #e2e8f0;
+            --ghost-btn-text: #111111;
+            --tab-bg: #dbe4f3;
+            --tab-text: #111111;
         }
 
         body {
@@ -169,10 +179,10 @@
         #auth-section input[type="email"],
         #auth-section input[type="password"],
         #auth-section input[type="text"] {
-            background: #1e2433;
-            color: #ffffff;
-            -webkit-text-fill-color: #ffffff;
-            border: 1px solid #3a4761;
+            background: var(--input-bg);
+            color: var(--input-text);
+            -webkit-text-fill-color: var(--input-text);
+            border: 1px solid var(--input-border);
         }
         #auth-section input::placeholder {
             color: #9fb0d4;
@@ -195,10 +205,10 @@
         body.light #auth-section input[type="email"],
         body.light #auth-section input[type="password"],
         body.light #auth-section input[type="text"] {
-            background: #ffffff;
-            color: #1f2937;
-            -webkit-text-fill-color: #1f2937;
-            border: 1px solid #c5d4ef;
+            background: var(--input-bg);
+            color: var(--input-text);
+            -webkit-text-fill-color: var(--input-text);
+            border: 1px solid var(--input-border);
         }
         body.light #auth-section input::placeholder {
             color: #6b7ea7;
@@ -217,7 +227,7 @@
 
         input[type="email"], input[type="password"], input[type="text"], select, textarea {
             width: 100%;
-            border: 1px solid var(--border);
+            border: 1px solid var(--input-border);
             border-radius: 12px;
             background: var(--input-bg);
             color: var(--input-text);
@@ -226,6 +236,15 @@
             padding: 14px 16px;
             outline: none;
             transition: border-color var(--hover-t), box-shadow var(--hover-t), background var(--hover-t), transform var(--hover-t);
+        }
+        select,
+        textarea {
+            color: var(--input-text);
+            -webkit-text-fill-color: var(--input-text);
+        }
+        select option {
+            background: var(--input-bg);
+            color: var(--input-text);
         }
         input::placeholder {
             color: var(--muted);
@@ -304,9 +323,9 @@
         }
 
         .btn.secondary {
-            color: var(--text);
-            background: transparent;
-            border: 1px solid var(--border);
+            color: var(--ghost-btn-text);
+            background: var(--ghost-btn-bg);
+            border: 1px solid var(--input-border);
             box-shadow: none;
             font-weight: 600;
         }
@@ -434,6 +453,7 @@
         .master-option {
             border: 1px solid var(--border);
             background: color-mix(in srgb, var(--card-solid) 85%, transparent);
+            color: var(--text);
             border-radius: 14px;
             padding: 14px;
             cursor: pointer;
@@ -460,9 +480,9 @@
             margin-top: 14px;
             width: 100%;
             border-radius: 12px;
-            border: 1px solid var(--border);
-            background: transparent;
-            color: var(--text);
+            border: 1px solid var(--input-border);
+            background: var(--ghost-btn-bg);
+            color: var(--ghost-btn-text);
             font-size: 14px;
             font-weight: 600;
             padding: 11px 14px;
@@ -544,9 +564,9 @@
         }
 
         .theme-toggle {
-            border: 1px solid var(--border);
-            background: transparent;
-            color: var(--text);
+            border: 1px solid var(--input-border);
+            background: var(--ghost-btn-bg);
+            color: var(--ghost-btn-text);
             width: 34px;
             height: 34px;
             border-radius: 999px;
@@ -562,9 +582,9 @@
             box-shadow: 0 0 0 4px rgba(101, 149, 255, 0.18);
         }
         .settings-btn {
-            border: 1px solid var(--border);
-            background: transparent;
-            color: var(--text);
+            border: 1px solid var(--input-border);
+            background: var(--ghost-btn-bg);
+            color: var(--ghost-btn-text);
             width: 34px;
             height: 34px;
             border-radius: 999px;
@@ -591,9 +611,9 @@
         body.light .icon-moon { display: block; }
 
         .logout-btn {
-            border: 1px solid var(--border);
-            background: transparent;
-            color: var(--text);
+            border: 1px solid var(--input-border);
+            background: var(--ghost-btn-bg);
+            color: var(--ghost-btn-text);
             padding: 7px 12px;
             border-radius: 999px;
             font-size: 12px;
@@ -682,8 +702,9 @@
         #result {
             margin-top: 20px;
             border-radius: 14px;
-            border: 1px solid var(--border);
+            border: 1px solid var(--input-border);
             background: var(--result);
+            color: var(--text);
             padding: 16px;
             line-height: 1.7;
             font-size: 15px;
@@ -786,9 +807,9 @@
             font-size: 12px;
             font-weight: 600;
             display: none;
-            color: var(--text);
-            background: transparent;
-            border: 1px solid var(--border);
+            color: var(--ghost-btn-text);
+            background: var(--ghost-btn-bg);
+            border: 1px solid var(--input-border);
             box-shadow: none;
         }
         .share-btn:hover {
@@ -804,9 +825,9 @@
             font-size: 12px;
             font-weight: 600;
             display: none;
-            color: var(--text);
-            background: transparent;
-            border: 1px solid var(--border);
+            color: var(--ghost-btn-text);
+            background: var(--ghost-btn-bg);
+            border: 1px solid var(--input-border);
             box-shadow: none;
         }
 
@@ -896,18 +917,18 @@
             margin: 10px 0 12px;
         }
         .tab-btn {
-            border: 1px solid var(--border);
-            background: transparent;
-            color: var(--muted);
+            border: 1px solid var(--input-border);
+            background: var(--tab-bg);
+            color: var(--tab-text);
             padding: 10px 12px;
             border-radius: 10px;
             font-size: 14px;
             cursor: pointer;
         }
         .tab-btn.active {
-            color: var(--text);
+            color: #ffffff;
             border-color: #79a7ff;
-            background: rgba(101, 149, 255, 0.16);
+            background: linear-gradient(135deg, #3f76ff 0%, #44b0ff 100%);
         }
         .tab-panel {
             display: none;
